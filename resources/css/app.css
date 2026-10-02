@@ -1,1 +1,10 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimal base styles */
+body {
+    background-color: #F5F5F5;
+    color: #2D2D2D;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
