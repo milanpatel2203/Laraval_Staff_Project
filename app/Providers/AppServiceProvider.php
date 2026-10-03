@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Models\ActivityLog;
 use App\Models\Leave;
+use App\Models\Task;
+use App\Policies\TaskPolicy;
+use App\Services\LeaveApprovalService;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -23,21 +27,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Task::class, TaskPolicy::class);
+
         View::composer('*', function ($view) {
+            $headerPendingLeavesCount = 0;
+            $headerNotifications = collect([]);
+            $headerUser = auth()->user();
+
             try {
                 if (Schema::hasTable('leaves') && Schema::hasTable('activity_logs')) {
-                    $headerPendingLeavesCount = Leave::where('status', 'pending')->count();
-                    $headerNotifications = ActivityLog::latest()->take(5)->get();
-                } else {
-                    $headerPendingLeavesCount = 0;
-                    $headerNotifications = collect([]);
-                }
+                    if (auth()->check() && Schema::hasColumn('leaves', 'current_approver_id')) {
+                        $headerPendingLeavesCount = app(LeaveApprovalService::class)
+                            ->pendingAssignedCount(auth()->user());
+                    } elseif (auth()->check()) {
+                        $headerPendingLeavesCount = Leave::where('status', 'pending')->count();
+                    }
 
-                $headerUser = Schema::hasTable('users') ? \App\Models\User::first() : null;
+                    $headerNotifications = ActivityLog::latest()->take(5)->get();
+                }
             } catch (\Exception $e) {
                 $headerPendingLeavesCount = 0;
                 $headerNotifications = collect([]);
-                $headerUser = null;
             }
 
             $view->with([

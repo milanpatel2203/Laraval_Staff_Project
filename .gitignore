@@ -1,27 +1,44 @@
-*.log
+# Laravel & PHP
+/vendor
+/node_modules
+/public/storage
+/public/hot
+/bootstrap/cache
+/storage/*.key
+/storage/framework/*
+/storage/logs
+/.env
+/.env.*
+!.env.example
+
+# OS / editor files
 .DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
+Thumbs.db
+.idea/
+.vscode/
+/.nova
+/.zed
+
+# Logs
+*.log
+
+# AI / tool configs
+/.claude
+/CLAUDE.md
+/AGENTS.md
+/.mcp.json
+/boost.json
 /.codex
 /.cursor/
-/.idea
-/.nova
+/.agents
+
+# Miscellaneous
+/.phpactor.json
+/.phpunit.result.cache
 /.phpunit.cache
-/.vscode
-/.zed
 /auth.json
-/node_modules
 /public/build
 /public/fonts-manifest.dev.json
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
-_ide_helper.php
-Homestead.json
-Homestead.yaml
-Thumbs.db
+/_ide_helper.php
+/Homestead.json
+/Homestead.yaml

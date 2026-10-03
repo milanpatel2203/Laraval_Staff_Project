@@ -20,4 +20,9 @@ class Department extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    public function teams()
+    {
+        return $this->hasMany(Team::class);
+    }
 }

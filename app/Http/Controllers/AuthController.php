@@ -1,12 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Facades\Password;
+
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
@@ -25,14 +25,17 @@ class AuthController extends Controller
         ]);
 
         if (Auth::attempt($credentials)) {
+
             $request->session()->regenerate();
 
-            return redirect('/dashboard');
+            return redirect()->route('dashboard');
         }
 
-        return back()->withErrors([
-            'email' => 'Invalid email or password.',
-        ])->withInput();
+        return back()
+            ->withErrors([
+                'email' => 'Invalid email or password.',
+            ])
+            ->withInput();
     }
 
     // Send Mobile OTP
@@ -44,10 +47,12 @@ class AuthController extends Controller
 
         $user = User::where('mobile', $request->mobile)->first();
 
-        if (!$user) {
-            return back()->withErrors([
-                'mobile' => 'Mobile number is not registered.',
-            ])->withInput();
+        if (! $user) {
+            return back()
+                ->withErrors([
+                    'mobile' => 'Mobile number is not registered.',
+                ])
+                ->withInput();
         }
 
         // Temporary OTP for testing
@@ -59,7 +64,10 @@ class AuthController extends Controller
             'otp_expires_at' => now()->addMinutes(5),
         ]);
 
-        return back()->with('otp_sent', "OTP generated: $otp");
+        return back()->with(
+            'otp_sent',
+            "OTP generated: $otp"
+        );
     }
 
     // Verify Mobile OTP
@@ -75,12 +83,22 @@ class AuthController extends Controller
             session('login_otp') != $request->otp ||
             now()->greaterThan(session('otp_expires_at'))
         ) {
-            return back()->withErrors([
-                'otp' => 'Invalid or expired OTP.',
-            ])->withInput();
+            return back()
+                ->withErrors([
+                    'otp' => 'Invalid or expired OTP.',
+                ])
+                ->withInput();
         }
 
         $user = User::where('mobile', $request->mobile)->first();
+
+        if (! $user) {
+            return back()
+                ->withErrors([
+                    'mobile' => 'User not found.',
+                ])
+                ->withInput();
+        }
 
         Auth::login($user);
 
@@ -92,7 +110,7 @@ class AuthController extends Controller
             'otp_expires_at',
         ]);
 
-        return redirect('/dashboard');
+        return redirect()->route('dashboard');
     }
 
     // Logout
@@ -106,58 +124,66 @@ class AuthController extends Controller
         return redirect()->route('login');
     }
 
-   public function forgotPassword(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-    ]);
+    // Forgot Password
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
 
-    $status = Password::sendResetLink(
-        $request->only('email')
-    );
-
-    if ($status === Password::RESET_LINK_SENT) {
-        return back()->with(
-            'success',
-            'Password reset link has been sent successfully.'
+        $status = Password::sendResetLink(
+            $request->only('email')
         );
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with(
+                'success',
+                'Password reset link has been sent successfully.'
+            );
+        }
+
+        return back()
+            ->withErrors([
+                'email' => __($status),
+            ])
+            ->withInput();
     }
 
-    return back()->withErrors([
-        'email' => __($status),
-    ])->withInput();
-}
+    // Reset Password
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
 
+        $status = Password::reset(
+            $request->only(
+                'email',
+                'password',
+                'password_confirmation',
+                'token'
+            ),
+            function ($user, $password) {
 
-public function resetPassword(Request $request)
-{
-    $request->validate([
-        'token' => 'required',
-        'email' => 'required|email',
-        'password' => 'required|min:8|confirmed',
-    ]);
+                $user->password = Hash::make($password);
+                $user->save();
+            }
+        );
 
-    $status = Password::reset(
-        $request->only(
-            'email',
-            'password',
-            'password_confirmation',
-            'token'
-        ),
-        function ($user, $password) {
-    $user->password = Hash::make($password);
-    $user->save();
-},
-    );
+        if ($status === Password::PASSWORD_RESET) {
 
-    if ($status === Password::PASSWORD_RESET) {
-        return redirect()
-            ->route('login')
-            ->with('success', 'Password reset successfully. Please login.');
+            return redirect()
+                ->route('login')
+                ->with(
+                    'success',
+                    'Password reset successfully. Please login.'
+                );
+        }
+
+        return back()->withErrors([
+            'email' => __($status),
+        ]);
     }
-
-    return back()->withErrors([
-        'email' => __($status),
-    ]);
-}
 }

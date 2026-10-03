@@ -7,8 +7,7 @@ use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Holiday;
-use App\Models\Leave;
-use Illuminate\Http\Request;
+use App\Services\LeaveApprovalService;
 
 class DashboardController extends Controller
 {
@@ -68,13 +67,16 @@ class DashboardController extends Controller
             ];
         });
 
-        // 4. Pending Leaves
-        $pendingLeaves = Leave::with('employee')
-            ->where('status', 'pending')
+        // 4. Pending Leaves assigned to the current approver
+        $approvalService = app(LeaveApprovalService::class);
+        $user = request()->user();
+        $pendingLeaves = $approvalService
+            ->pendingAssignedQuery($user)
+            ->with('employee')
             ->latest()
             ->take(5)
             ->get();
-        $pendingLeavesCount = Leave::where('status', 'pending')->count();
+        $pendingLeavesCount = $approvalService->pendingAssignedCount($user);
 
         // 5. New Hires in last 30 days
         $newHires = Employee::where('joining_date', '>=', now()->subDays(30))->count();
@@ -82,7 +84,7 @@ class DashboardController extends Controller
         // 6. Monthly Payroll Sum
         $totalPayrollSum = (float) Employee::where('status', 'active')->sum('salary');
         if ($totalPayrollSum >= 100000) {
-            $formattedPayroll = round($totalPayrollSum / 100000, 2) . 'L';
+            $formattedPayroll = round($totalPayrollSum / 100000, 2).'L';
         } else {
             $formattedPayroll = number_format($totalPayrollSum, 0);
         }
