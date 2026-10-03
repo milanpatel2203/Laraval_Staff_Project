@@ -48,7 +48,7 @@ class PayrollController extends Controller
         $allMonthPayrolls = $summaryQuery->get();
         $totalGross = $allMonthPayrolls->sum('basic_salary') + $allMonthPayrolls->sum('allowances');
         $totalNet = $allMonthPayrolls->sum('net_salary');
-        $totalPaid = $allMonthPayrolls->sum(function($p) {
+        $totalPaid = $allMonthPayrolls->sum(function ($p) {
             if ($p->paid_amount !== null && $p->paid_amount > 0) {
                 return (float) $p->paid_amount;
             }
@@ -75,6 +75,57 @@ class PayrollController extends Controller
         ));
     }
 
+    /**
+     * Get all payroll component configuration from Settings.
+     */
+    public static function getPayrollConfig(): array
+    {
+        $pf = (float) \App\Models\Setting::get('payroll_pf_percent', 12.0);
+        $pt = (float) \App\Models\Setting::get('payroll_pt_percent', 2.5);
+        $esi = (float) \App\Models\Setting::get('payroll_esi_percent', 0.75);
+        $tds = (float) \App\Models\Setting::get('payroll_tds_percent', 0.0);
+        $otherDed = (float) \App\Models\Setting::get('payroll_other_deduction_percent', 0.0);
+
+        $hra = (float) \App\Models\Setting::get('payroll_hra_percent', 10.0);
+        $da = (float) \App\Models\Setting::get('payroll_da_percent', 5.0);
+        $conveyance = (float) \App\Models\Setting::get('payroll_conveyance_percent', 3.0);
+        $medical = (float) \App\Models\Setting::get('payroll_medical_percent', 2.0);
+        $special = (float) \App\Models\Setting::get('payroll_special_allowance_percent', 0.0);
+
+        $totalDed = round($pf + $pt + $esi + $tds + $otherDed, 2);
+        $totalAll = round($hra + $da + $conveyance + $medical + $special, 2);
+
+        return [
+            // Exact Setting keys & form field names
+            'payroll_pf_percent'                => $pf,
+            'payroll_pt_percent'                => $pt,
+            'payroll_esi_percent'               => $esi,
+            'payroll_tds_percent'               => $tds,
+            'payroll_other_deduction_percent'   => $otherDed,
+            'payroll_hra_percent'               => $hra,
+            'payroll_da_percent'                => $da,
+            'payroll_conveyance_percent'        => $conveyance,
+            'payroll_medical_percent'           => $medical,
+            'payroll_special_allowance_percent' => $special,
+
+            // Short aliases
+            'pf'                                => $pf,
+            'pt'                                => $pt,
+            'esi'                               => $esi,
+            'tds'                               => $tds,
+            'other_deduction'                   => $otherDed,
+            'hra'                               => $hra,
+            'da'                                => $da,
+            'conveyance'                        => $conveyance,
+            'medical'                           => $medical,
+            'special'                           => $special,
+
+            // Computed totals
+            'total_deductions'                  => $totalDed,
+            'total_allowances'                  => $totalAll,
+        ];
+    }
+
     public function generate(Request $request)
     {
         $user = auth()->user();
@@ -85,40 +136,64 @@ class PayrollController extends Controller
         $month = $request->get('month', now()->format('Y-m'));
         $employees = Employee::where('status', 'active')->get();
         $createdCount = 0;
+        $updatedCount = 0;
+
+        // Read individual component percentages from configuration
+        $cfg = self::getPayrollConfig();
+
+        $totalAllowancePercent = $cfg['payroll_hra_percent']
+            + $cfg['payroll_da_percent']
+            + $cfg['payroll_conveyance_percent']
+            + $cfg['payroll_medical_percent']
+            + $cfg['payroll_special_allowance_percent'];
+
+        $totalDeductionPercent = $cfg['payroll_pf_percent']
+            + $cfg['payroll_pt_percent']
+            + $cfg['payroll_esi_percent']
+            + $cfg['payroll_tds_percent']
+            + $cfg['payroll_other_deduction_percent'];
 
         foreach ($employees as $emp) {
             $basic = (float) $emp->salary;
-            // Standard allowances: 15% HRA, 5% Special
-            $allowances = round($basic * 0.20, 2);
-            // Standard deductions: 10% PF & Tax
-            $deductions = round($basic * 0.10, 2);
-            $net = $basic + $allowances - $deductions;
+            $allowances = round($basic * ($totalAllowancePercent / 100), 2);
+            $deductions = round($basic * ($totalDeductionPercent / 100), 2);
+            $net = max(0, round($basic + $allowances - $deductions, 2));
 
-            $payroll = Payroll::firstOrCreate(
-                 ['employee_id' => $emp->id, 'month' => $month],
-                 [
-                     'basic_salary' => $basic,
-                     'allowances' => $allowances,
-                     'deductions' => $deductions,
-                     'net_salary' => $net,
-                     'paid_amount' => 0,
-                     'status' => 'pending',
-                 ]
-            );
-
-            if ($payroll->wasRecentlyCreated) {
+            $payroll = Payroll::where('employee_id', $emp->id)->where('month', $month)->first();
+            if (!$payroll) {
+                Payroll::create([
+                    'employee_id' => $emp->id,
+                    'month'       => $month,
+                    'basic_salary' => $basic,
+                    'allowances'   => $allowances,
+                    'deductions'   => $deductions,
+                    'net_salary'   => $net,
+                    'paid_amount'  => 0,
+                    'status'       => 'pending',
+                ]);
                 $createdCount++;
+            } elseif ($payroll->status === 'pending' && ($payroll->paid_amount === null || (float)$payroll->paid_amount == 0)) {
+                // Update pending unpaid records with the latest rates
+                $payroll->update([
+                    'basic_salary' => $basic,
+                    'allowances'   => $allowances,
+                    'deductions'   => $deductions,
+                    'net_salary'   => $net,
+                ]);
+                $updatedCount++;
             }
         }
 
         ActivityLog::record(
             "Payroll generated for {$month}",
-            "Processed {$createdCount} employee payroll slips for period {$month}",
+            "Processed payroll slips (Created: {$createdCount}, Updated: {$updatedCount}, Deductions: {$totalDeductionPercent}%, Allowances: {$totalAllowancePercent}%)",
             'money-bill-wave'
         );
 
+        $summaryMsg = "Payroll processed for {$month}: {$createdCount} newly created" . ($updatedCount > 0 ? ", {$updatedCount} pending updated" : "") . ". Deductions: {$totalDeductionPercent}% · Allowances: {$totalAllowancePercent}%";
+
         return redirect()->route('payroll.index', ['month' => $month])
-            ->with('success', "Payroll generated successfully for {$month} ({$createdCount} new records created).");
+            ->with('success', $summaryMsg);
     }
 
     public function markPaid(Request $request, Payroll $payroll)
@@ -248,7 +323,7 @@ class PayrollController extends Controller
         $user = auth()->user();
         if (!$user->hasPermission('payroll.view')) {
             $linkedEmployee = $user->linked_employee;
-            if (!$linkedEmployee || (int)$payroll->employee_id !== (int)$linkedEmployee->id) {
+            if (!$linkedEmployee || (int) $payroll->employee_id !== (int) $linkedEmployee->id) {
                 abort(403, 'Unauthorized. You may only view your own payslip.');
             }
         }
@@ -326,5 +401,102 @@ class PayrollController extends Controller
         $filename = 'payroll_export_' . $currentMonth . '.csv';
 
         return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+    }
+
+    /**
+     * Show the Payroll Configuration form.
+     */
+    public function configuration()
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isSuperAdmin()) {
+            abort(403, 'Only Super Admin can access payroll configuration.');
+        }
+
+        $config = self::getPayrollConfig();
+
+        return view('payrolls.configuration', compact('config'));
+    }
+
+    /**
+     * Save Payroll Configuration.
+     */
+    public function updateConfiguration(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isSuperAdmin()) {
+            abort(403, 'Only Super Admin can update payroll configuration.');
+        }
+
+        $fields = [
+            'payroll_pf_percent',
+            'payroll_pt_percent',
+            'payroll_esi_percent',
+            'payroll_tds_percent',
+            'payroll_other_deduction_percent',
+            'payroll_hra_percent',
+            'payroll_da_percent',
+            'payroll_conveyance_percent',
+            'payroll_medical_percent',
+            'payroll_special_allowance_percent',
+        ];
+
+        foreach ($fields as $key) {
+            if ($request->has($key)) {
+                $value = max(0, min(100, (float) $request->input($key)));
+                \App\Models\Setting::set($key, (string) $value, 'payroll');
+            }
+        }
+
+        // Get latest component rates and totals
+        $cfg = self::getPayrollConfig();
+        $totalDed = $cfg['total_deductions'];
+        $totalAll = $cfg['total_allowances'];
+
+        // Sync legacy aggregate settings for backward compatibility
+        \App\Models\Setting::set('payroll_deduction_percent', (string) $totalDed, 'payroll');
+        \App\Models\Setting::set('payroll_allowance_percent', (string) $totalAll, 'payroll');
+
+        // Automatically recalculate and update all pending (unpaid) payroll records for the current month
+        $currentMonth = now()->format('Y-m');
+        $pendingPayrolls = Payroll::with('employee')
+            ->where('month', $currentMonth)
+            ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->whereNull('paid_amount')->orWhere('paid_amount', 0);
+            })
+            ->get();
+
+        $updatedCount = 0;
+        foreach ($pendingPayrolls as $p) {
+            $basic = (float) ($p->employee ? $p->employee->salary : $p->basic_salary);
+            $allowances = round($basic * ($totalAll / 100), 2);
+            $deductions = round($basic * ($totalDed / 100), 2);
+            $net = max(0, round($basic + $allowances - $deductions, 2));
+
+            $p->update([
+                'basic_salary' => $basic,
+                'allowances'   => $allowances,
+                'deductions'   => $deductions,
+                'net_salary'   => $net,
+            ]);
+            $updatedCount++;
+        }
+
+        ActivityLog::record(
+            'Payroll configuration updated',
+            "Component rates updated — Total Deductions: {$totalDed}%, Total Allowances: {$totalAll}% (" . ($updatedCount > 0 ? "Updated {$updatedCount} pending payrolls for {$currentMonth}" : "No pending payrolls") . ")",
+            'sliders-h'
+        );
+
+        $successMsg = 'Payroll configuration saved successfully!';
+        if ($updatedCount > 0) {
+            $successMsg .= " Automatically updated {$updatedCount} pending payroll record(s) for {$currentMonth} with the new rates.";
+        } else {
+            $successMsg .= " New rates will apply to newly generated payrolls.";
+        }
+
+        return redirect()->route('payroll.configuration')
+            ->with('success', $successMsg);
     }
 }
