@@ -11,8 +11,17 @@ use Illuminate\Support\Facades\Password;
 class AuthController extends Controller
 {
     // Show Login Page
-    public function showLogin()
+    public function showLogin(Request $request)
     {
+        if (Auth::check()) {
+            return redirect()->route('dashboard');
+        }
+
+        if ($request->has('clear_otp')) {
+            session()->forget(['login_otp', 'login_mobile', 'otp_expires_at']);
+            return redirect()->route('login');
+        }
+
         return view('auth.login');
     }
 
