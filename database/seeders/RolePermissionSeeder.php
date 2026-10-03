@@ -2,152 +2,436 @@
 
 namespace Database\Seeders;
 
-use App\Models\Employee;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Granular Permissions grouped by Module
-        $modules = [
-            'Employees' => [
-                'employees.view' => 'View employee records',
-                'employees.create' => 'Create new employees',
-                'employees.edit' => 'Edit employee profiles',
-                'employees.delete' => 'Delete employee records',
-            ],
-            'Departments' => [
-                'departments.view' => 'View departments list',
-                'departments.manage' => 'Create, edit & delete departments',
-            ],
-            'Attendance' => [
-                'attendance.view' => 'View daily attendance logs',
-                'attendance.mark' => 'Mark employee attendance / punches',
-            ],
-            'Leaves' => [
-                'leaves.view' => 'View staff leave requests',
-                'leaves.apply' => 'Submit leave requests',
-                'leaves.approve' => 'Approve or reject leave applications',
-            ],
-            'Payroll' => [
-                'payroll.view' => 'View payroll summary and records',
-                'payroll.generate' => 'Generate monthly payroll batches',
-                'payroll.disburse' => 'Mark salary disbursements as paid',
-                'payroll.payslip' => 'View & print employee payslips',
-            ],
-            'Holidays' => [
-                'holidays.view' => 'View organization holiday calendar',
-                'holidays.manage' => 'Add, update & delete company holidays',
-            ],
-            'Settings' => [
-                'settings.manage' => 'Manage system configuration & company profile',
-                'roles.manage' => 'Manage user roles and access permissions',
-            ],
-        ];
+        /*
+        |--------------------------------------------------------------------------
+        | Roles
+        |--------------------------------------------------------------------------
+        */
 
-        $permissionModels = [];
-        foreach ($modules as $moduleName => $permissions) {
-            foreach ($permissions as $slug => $desc) {
-                $permissionModels[$slug] = Permission::updateOrCreate(
-                    ['slug' => $slug],
-                    [
-                        'name' => ucwords(str_replace(['.', '_'], ' ', $slug)),
-                        'module' => $moduleName,
-                        'description' => $desc,
-                    ]
-                );
-            }
-        }
-
-        // 2. Define Core Roles
-        $rolesData = [
+        $roles = [
             [
-                'name' => 'Super Administrator',
+                'name' => 'Super Admin',
                 'slug' => 'super-admin',
-                'description' => 'Full unrestricted access to all HRMS administrative functions and configurations.',
-                'is_system' => true,
-                'permissions' => array_keys($permissionModels), // All permissions
+                'description' => 'Full system access',
+            ],
+            [
+                'name' => 'Admin',
+                'slug' => 'admin',
+                'description' => 'Administrative access',
             ],
             [
                 'name' => 'HR Manager',
                 'slug' => 'hr-manager',
-                'description' => 'Manages employee lifecycles, attendance tracking, leave approvals, and payroll processing.',
-                'is_system' => false,
-                'permissions' => [
-                    'employees.view', 'employees.create', 'employees.edit',
-                    'departments.view', 'departments.manage',
-                    'attendance.view', 'attendance.mark',
-                    'leaves.view', 'leaves.approve',
-                    'payroll.view', 'payroll.generate', 'payroll.disburse', 'payroll.payslip',
-                    'holidays.view', 'holidays.manage',
-                    'settings.manage',
-                ],
+                'description' => 'Human resource management access',
             ],
             [
-                'name' => 'Department Manager',
-                'slug' => 'department-manager',
-                'description' => 'Supervises department personnel, tracks team attendance, and authorizes leave requests.',
-                'is_system' => false,
-                'permissions' => [
-                    'employees.view',
-                    'departments.view',
-                    'attendance.view', 'attendance.mark',
-                    'leaves.view', 'leaves.approve',
-                    'holidays.view',
-                ],
+                'name' => 'Manager',
+                'slug' => 'manager',
+                'description' => 'Department and team management access',
             ],
             [
-                'name' => 'Staff / Employee',
-                'slug' => 'employee',
-                'description' => 'Standard employee access to punch attendance, request leaves, and inspect personal payslips.',
-                'is_system' => false,
-                'permissions' => [
-                    'attendance.view',
-                    'leaves.view', 'leaves.apply',
-                    'payroll.payslip',
-                    'holidays.view',
-                ],
+                'name' => 'Staff',
+                'slug' => 'staff',
+                'description' => 'Basic employee access',
+            ],
+            [
+                'name' => 'Team Leader',
+                'slug' => 'team-leader',
+                'description' => 'Team management access',
             ],
         ];
-
-        $roleModels = [];
-        foreach ($rolesData as $r) {
-            $role = Role::updateOrCreate(
-                ['slug' => $r['slug']],
+        foreach ($roles as $role) {
+            Role::updateOrCreate(
+                ['name' => $role['name']],
                 [
-                    'name' => $r['name'],
-                    'description' => $r['description'],
-                    'is_system' => $r['is_system'],
+                    'slug' => $role['slug'],
+                    'description' => $role['description'],
                 ]
             );
-
-            // Sync permissions to role
-            $permIds = collect($r['permissions'])
-                ->map(fn($slug) => $permissionModels[$slug]->id ?? null)
-                ->filter();
-
-            $role->permissions()->sync($permIds);
-            $roleModels[$r['slug']] = $role;
         }
 
-        // 3. Assign default roles to existing sample employees
-        $empRoleMap = [
-            'EMP-001' => 'super-admin', // Keval (Lead)
-            'EMP-002' => 'employee',    // Rahul (Developer)
-            'EMP-003' => 'hr-manager',  // Priya (HR Specialist)
-            'EMP-004' => 'department-manager', // Amit (Finance Lead)
-            'EMP-005' => 'department-manager', // Neha (Marketing Lead)
-            'EMP-006' => 'employee',    // Vikram (Sales)
+        /*
+        |--------------------------------------------------------------------------
+        | Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $permissions = [
+
+            // Dashboard
+            [
+                'name' => 'View Dashboard',
+                'slug' => 'dashboard.view',
+                'module' => 'dashboard',
+                'description' => 'View dashboard',
+            ],
+
+            // Employees
+            [
+                'name' => 'View Employees',
+                'slug' => 'employees.view',
+                'module' => 'employees',
+                'description' => 'View employees',
+            ],
+            [
+                'name' => 'Create Employees',
+                'slug' => 'employees.create',
+                'module' => 'employees',
+                'description' => 'Create employees',
+            ],
+            [
+                'name' => 'Edit Employees',
+                'slug' => 'employees.edit',
+                'module' => 'employees',
+                'description' => 'Edit employees',
+            ],
+            [
+                'name' => 'Delete Employees',
+                'slug' => 'employees.delete',
+                'module' => 'employees',
+                'description' => 'Delete employees',
+            ],
+
+            // Departments
+            [
+                'name' => 'View Departments',
+                'slug' => 'departments.view',
+                'module' => 'departments',
+                'description' => 'View departments',
+            ],
+            [
+                'name' => 'Create Departments',
+                'slug' => 'departments.create',
+                'module' => 'departments',
+                'description' => 'Create departments',
+            ],
+            [
+                'name' => 'Edit Departments',
+                'slug' => 'departments.edit',
+                'module' => 'departments',
+                'description' => 'Edit departments',
+            ],
+            [
+                'name' => 'Delete Departments',
+                'slug' => 'departments.delete',
+                'module' => 'departments',
+                'description' => 'Delete departments',
+            ],
+
+            // Teams
+            [
+                'name' => 'View Teams',
+                'slug' => 'teams.view',
+                'module' => 'teams',
+                'description' => 'View teams',
+            ],
+            [
+                'name' => 'Create Teams',
+                'slug' => 'teams.create',
+                'module' => 'teams',
+                'description' => 'Create teams',
+            ],
+            [
+                'name' => 'Edit Teams',
+                'slug' => 'teams.edit',
+                'module' => 'teams',
+                'description' => 'Edit teams',
+            ],
+            [
+                'name' => 'Delete Teams',
+                'slug' => 'teams.delete',
+                'module' => 'teams',
+                'description' => 'Delete teams',
+            ],
+
+            // Tasks
+            [
+                'name' => 'View Tasks',
+                'slug' => 'tasks.view',
+                'module' => 'tasks',
+                'description' => 'View tasks',
+            ],
+            [
+                'name' => 'Create Tasks',
+                'slug' => 'tasks.create',
+                'module' => 'tasks',
+                'description' => 'Create tasks',
+            ],
+            [
+                'name' => 'Edit Tasks',
+                'slug' => 'tasks.edit',
+                'module' => 'tasks',
+                'description' => 'Edit tasks',
+            ],
+            [
+                'name' => 'Delete Tasks',
+                'slug' => 'tasks.delete',
+                'module' => 'tasks',
+                'description' => 'Delete tasks',
+            ],
+            [
+                'name' => 'Assign Tasks',
+                'slug' => 'tasks.assign',
+                'module' => 'tasks',
+                'description' => 'Assign tasks to employees',
+            ],
+            [
+                'name' => 'Reassign Tasks',
+                'slug' => 'tasks.reassign',
+                'module' => 'tasks',
+                'description' => 'Reassign tasks to other employees',
+            ],
+
+            // Attendance
+            [
+                'name' => 'View Attendance',
+                'slug' => 'attendance.view',
+                'module' => 'attendance',
+                'description' => 'View attendance',
+            ],
+            [
+                'name' => 'Create Attendance',
+                'slug' => 'attendance.create',
+                'module' => 'attendance',
+                'description' => 'Create attendance',
+            ],
+            [
+                'name' => 'Edit Attendance',
+                'slug' => 'attendance.edit',
+                'module' => 'attendance',
+                'description' => 'Edit attendance',
+            ],
+            [
+                'name' => 'Delete Attendance',
+                'slug' => 'attendance.delete',
+                'module' => 'attendance',
+                'description' => 'Delete attendance',
+            ],
+
+            // Leaves
+            [
+                'name' => 'View Leaves',
+                'slug' => 'leaves.view',
+                'module' => 'leaves',
+                'description' => 'View leave requests',
+            ],
+            [
+                'name' => 'Create Leaves',
+                'slug' => 'leaves.create',
+                'module' => 'leaves',
+                'description' => 'Create leave requests',
+            ],
+            [
+                'name' => 'Edit Leaves',
+                'slug' => 'leaves.edit',
+                'module' => 'leaves',
+                'description' => 'Edit leave requests',
+            ],
+            [
+                'name' => 'Approve Leaves',
+                'slug' => 'leaves.approve',
+                'module' => 'leaves',
+                'description' => 'Approve leave requests',
+            ],
+            [
+                'name' => 'Reject Leaves',
+                'slug' => 'leaves.reject',
+                'module' => 'leaves',
+                'description' => 'Reject leave requests',
+            ],
+
+            // Payroll
+            [
+                'name' => 'View Payroll',
+                'slug' => 'payroll.view',
+                'module' => 'payroll',
+                'description' => 'View payroll',
+            ],
+            [
+                'name' => 'Create Payroll',
+                'slug' => 'payroll.create',
+                'module' => 'payroll',
+                'description' => 'Create payroll',
+            ],
+            [
+                'name' => 'Edit Payroll',
+                'slug' => 'payroll.edit',
+                'module' => 'payroll',
+                'description' => 'Edit payroll',
+            ],
+            [
+                'name' => 'Delete Payroll',
+                'slug' => 'payroll.delete',
+                'module' => 'payroll',
+                'description' => 'Delete payroll',
+            ],
+
+            // Holidays
+            [
+                'name' => 'View Holidays',
+                'slug' => 'holidays.view',
+                'module' => 'holidays',
+                'description' => 'View holidays',
+            ],
+            [
+                'name' => 'Create Holidays',
+                'slug' => 'holidays.create',
+                'module' => 'holidays',
+                'description' => 'Create holidays',
+            ],
+            [
+                'name' => 'Edit Holidays',
+                'slug' => 'holidays.edit',
+                'module' => 'holidays',
+                'description' => 'Edit holidays',
+            ],
+            [
+                'name' => 'Delete Holidays',
+                'slug' => 'holidays.delete',
+                'module' => 'holidays',
+                'description' => 'Delete holidays',
+            ],
+
+            // Roles
+            [
+                'name' => 'View Roles',
+                'slug' => 'roles.view',
+                'module' => 'roles',
+                'description' => 'View roles and permissions',
+            ],
+            [
+                'name' => 'Create Roles',
+                'slug' => 'roles.create',
+                'module' => 'roles',
+                'description' => 'Create roles',
+            ],
+            [
+                'name' => 'Edit Roles',
+                'slug' => 'roles.edit',
+                'module' => 'roles',
+                'description' => 'Edit roles',
+            ],
+            [
+                'name' => 'Delete Roles',
+                'slug' => 'roles.delete',
+                'module' => 'roles',
+                'description' => 'Delete roles',
+            ],
+
+            // Settings
+            [
+                'name' => 'View Settings',
+                'slug' => 'settings.view',
+                'module' => 'settings',
+                'description' => 'View settings',
+            ],
+            [
+                'name' => 'Edit Settings',
+                'slug' => 'settings.edit',
+                'module' => 'settings',
+                'description' => 'Edit settings',
+            ],
+
+            // Profile
+            [
+                'name' => 'View Profile',
+                'slug' => 'profile.view',
+                'module' => 'profile',
+                'description' => 'View profile',
+            ],
+            [
+                'name' => 'Edit Profile',
+                'slug' => 'profile.edit',
+                'module' => 'profile',
+                'description' => 'Edit profile',
+            ],
         ];
 
-        foreach ($empRoleMap as $code => $roleSlug) {
-            if (isset($roleModels[$roleSlug])) {
-                Employee::where('employee_code', $code)->update(['role_id' => $roleModels[$roleSlug]->id]);
-            }
+        /*
+        |--------------------------------------------------------------------------
+        | Create Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($permissions as $permission) {
+            Permission::updateOrCreate(
+                ['slug' => $permission['slug']],
+                [
+                    'name' => $permission['name'],
+                    'module' => $permission['module'],
+                    'description' => $permission['description'],
+                ]
+            );
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Super Admin → All Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $superAdmin = Role::where('name', 'Super Admin')->first();
+
+        $allPermissions = Permission::all();
+
+        $superAdmin->permissions()->sync(
+            $allPermissions->pluck('id')->toArray()
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | HR Manager Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $hrManager = Role::where('slug', 'hr-manager')->first();
+        $hrManagerPermissions = Permission::whereIn('module', ['dashboard', 'employees', 'departments', 'teams', 'tasks', 'attendance', 'leaves', 'payroll', 'holidays', 'roles', 'settings', 'profile'])
+            ->pluck('id')
+            ->toArray();
+        $hrManager->permissions()->sync($hrManagerPermissions);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Manager Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $manager = Role::where('slug', 'manager')->first();
+        $managerPermissions = Permission::whereIn('module', ['dashboard', 'employees', 'departments', 'teams', 'tasks', 'attendance', 'leaves', 'payroll', 'holidays', 'profile'])
+            ->pluck('id')
+            ->toArray();
+        $manager->permissions()->sync($managerPermissions);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Team Leader Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $teamLeader = Role::where('slug', 'team-leader')->first();
+        $teamLeaderPermissions = Permission::whereIn('module', ['dashboard', 'employees', 'teams', 'tasks', 'attendance', 'leaves', 'profile'])
+            ->pluck('id')
+            ->toArray();
+        $teamLeader->permissions()->sync($teamLeaderPermissions);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Staff Permissions
+        |--------------------------------------------------------------------------
+        */
+
+        $staff = Role::where('slug', 'staff')->first();
+        $staffPermissions = Permission::whereIn('module', ['dashboard', 'tasks', 'attendance', 'leaves', 'profile'])
+            ->pluck('id')
+            ->toArray();
+        $staff->permissions()->sync($staffPermissions);
     }
 }

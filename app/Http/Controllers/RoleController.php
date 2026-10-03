@@ -12,7 +12,9 @@ class RoleController extends Controller
 {
     public function index()
     {
-        $roles = Role::withCount(['employees', 'permissions'])->with('permissions')->get();
+        $roles = Role::withCount(['users', 'permissions'])
+            ->with('permissions')
+            ->get();
         $totalPermissions = Permission::count();
 
         return view('roles.index', compact('roles', 'totalPermissions'));
@@ -21,6 +23,7 @@ class RoleController extends Controller
     public function create()
     {
         $permissions = Permission::all()->groupBy('module');
+
         return view('roles.create', compact('permissions'));
     }
 
@@ -40,13 +43,13 @@ class RoleController extends Controller
             'is_system' => false,
         ]);
 
-        if (!empty($validated['permissions'])) {
+        if (! empty($validated['permissions'])) {
             $role->permissions()->sync($validated['permissions']);
         }
 
         ActivityLog::record(
             "Role created: {$role->name}",
-            "Assigned " . count($validated['permissions'] ?? []) . " permissions",
+            'Assigned '.count($validated['permissions'] ?? []).' permissions',
             'user-shield'
         );
 
@@ -64,7 +67,7 @@ class RoleController extends Controller
     public function update(Request $request, Role $role)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:roles,name,' . $role->id,
+            'name' => 'required|string|max:100|unique:roles,name,'.$role->id,
             'description' => 'nullable|string|max:500',
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id',
@@ -80,7 +83,7 @@ class RoleController extends Controller
 
         ActivityLog::record(
             "Role updated: {$role->name}",
-            "Permissions updated (" . count($validated['permissions'] ?? []) . " assigned)",
+            'Permissions updated ('.count($validated['permissions'] ?? []).' assigned)',
             'user-shield'
         );
 
@@ -103,7 +106,7 @@ class RoleController extends Controller
 
         ActivityLog::record(
             "Role deleted: {$name}",
-            "Removed from system access control",
+            'Removed from system access control',
             'user-times'
         );
 
