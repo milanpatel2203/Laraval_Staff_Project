@@ -10,14 +10,25 @@ class HolidayController extends Controller
 {
     public function index(Request $request)
     {
-        $year = $request->get('year', now()->year);
-        $holidays = Holiday::whereYear('date', $year)->orderBy('date')->get();
+        $user = auth()->user();
+        if (!$user->hasPermission('holidays.view')) {
+            abort(403, 'Unauthorized. You do not have permission to view holidays.');
+        }
 
-        return view('holidays.index', compact('holidays', 'year'));
+        $year = $request->get('year', now()->year);
+        $holidays = Holiday::whereYear('date', $year)->orderBy('date')->paginate(10)->withQueryString();
+        $canManageHolidays = $user->hasPermission('holidays.manage');
+
+        return view('holidays.index', compact('holidays', 'year', 'canManageHolidays'));
     }
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+        if (!$user->hasPermission('holidays.manage')) {
+            abort(403, 'Unauthorized. You do not have permission to manage holidays.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'date' => 'required|date',
@@ -39,6 +50,11 @@ class HolidayController extends Controller
 
     public function update(Request $request, Holiday $holiday)
     {
+        $user = auth()->user();
+        if (!$user->hasPermission('holidays.manage')) {
+            abort(403, 'Unauthorized. You do not have permission to manage holidays.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'date' => 'required|date',
@@ -54,6 +70,11 @@ class HolidayController extends Controller
 
     public function destroy(Holiday $holiday)
     {
+        $user = auth()->user();
+        if (!$user->hasPermission('holidays.manage')) {
+            abort(403, 'Unauthorized. You do not have permission to manage holidays.');
+        }
+
         $name = $holiday->name;
         $holiday->delete();
 
