@@ -227,3 +227,24 @@ body {
 .bg-canvas {
     background-color: var(--bg-canvas) !important;
 }
+
+/* ========================================================
+   Pagination Clean Styling
+   ======================================================== */
+.custom-pagination nav > div:first-child {
+    display: none; /* Hide duplicate mobile text so desktop bar is clean */
+}
+.custom-pagination nav svg {
+    width: 0.9rem !important;
+    height: 0.9rem !important;
+    display: inline-block !important;
+}
+.custom-pagination span[aria-current="page"] > span {
+    background-color: var(--brand-primary, #2D2D2D) !important;
+    border-color: var(--brand-primary, #2D2D2D) !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+.custom-pagination a:hover {
+    background-color: #F3F4F6 !important;
+}

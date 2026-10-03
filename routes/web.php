@@ -161,6 +161,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/payroll/export', [PayrollController::class, 'export'])
         ->name('payroll.export');
 
+    Route::get('/payroll/configuration', [PayrollController::class, 'configuration'])
+        ->name('payroll.configuration');
+
+    Route::post('/payroll/configuration', [PayrollController::class, 'updateConfiguration'])
+        ->name('payroll.configuration.update');
+
     Route::post('/payroll/generate', [PayrollController::class, 'generate'])
         ->name('payroll.generate');
 
