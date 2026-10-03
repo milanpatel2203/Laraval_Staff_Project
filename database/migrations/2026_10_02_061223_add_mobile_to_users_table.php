@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('mobile', 10)->unique()->after('email');
+            if (!Schema::hasColumn('users', 'mobile')) {
+                $table->string('mobile', 10)->nullable()->unique()->after('email');
+            }
         });
     }
 

@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
                     $headerNotifications = collect([]);
                 }
 
-                $headerUser = Schema::hasTable('users') ? \App\Models\User::first() : null;
+                $headerUser = \Illuminate\Support\Facades\Auth::user() ?? (Schema::hasTable('users') ? \App\Models\User::first() : null);
             } catch (\Exception $e) {
                 $headerPendingLeavesCount = 0;
                 $headerNotifications = collect([]);

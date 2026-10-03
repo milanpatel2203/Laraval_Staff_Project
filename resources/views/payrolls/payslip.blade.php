@@ -20,16 +20,21 @@
 
         {{-- Actions --}}
         <div class="no-print flex items-center justify-between">
-            <a href="{{ route('payroll.index', ['month' => $payroll->month]) }}" class="px-3 py-1.5 border border-gray-300 rounded text-xs bg-white text-gray-700 hover:bg-gray-100 flex items-center gap-1.5">
+            <a href="{{ route('payroll.index', ['month' => $payroll->month]) }}" class="px-3.5 py-1.5 border border-gray-300 rounded text-xs bg-white text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 transition-colors">
                 <i class="fas fa-arrow-left"></i> Back to Payroll
             </a>
-            <button onclick="window.print()" class="px-4 py-1.5 bg-[#2D2D2D] text-white rounded text-xs font-semibold hover:bg-[#1a1a1a] flex items-center gap-1.5">
-                <i class="fas fa-print"></i> Print Payslip
-            </button>
+            <div class="flex items-center gap-2">
+                <button id="downloadPdfBtn" onclick="downloadPayslipPdf()" class="px-4 py-1.5 bg-[#2D2D2D] text-white rounded text-xs font-semibold hover:bg-[#1a1a1a] flex items-center gap-1.5 transition-colors shadow-sm">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </button>
+                <button onclick="window.print()" class="px-4 py-1.5 border border-gray-300 bg-white text-[#2D2D2D] rounded text-xs font-semibold hover:bg-gray-100 flex items-center gap-1.5 transition-colors">
+                    <i class="fas fa-print"></i> Print Payslip
+                </button>
+            </div>
         </div>
 
         {{-- Payslip Document --}}
-        <div class="bg-white border border-gray-300 rounded p-8 shadow-sm">
+        <div id="payslipDocument" class="bg-white border border-gray-300 rounded p-8 shadow-sm">
             {{-- Header --}}
             <div class="flex items-center justify-between border-b border-gray-200 pb-6 mb-6">
                 <div>
@@ -38,9 +43,13 @@
                     <p class="text-xs text-gray-500">hr@uesthrms.com | +91 79 1234 5678</p>
                 </div>
                 <div class="text-right">
-                    <span class="inline-block px-2.5 py-1 text-xs font-bold uppercase rounded {{ $payroll->status === 'paid' ? 'bg-[#2D2D2D] text-white' : 'bg-gray-200 text-gray-800' }}">
-                        {{ ucfirst($payroll->status) }}
-                    </span>
+                    @if($payroll->status === 'paid')
+                        <span class="inline-block px-2.5 py-1 text-xs font-bold uppercase rounded bg-emerald-700 text-white">PAID (FULL)</span>
+                    @elseif($payroll->status === 'partial')
+                        <span class="inline-block px-2.5 py-1 text-xs font-bold uppercase rounded bg-amber-600 text-white">PARTIALLY PAID</span>
+                    @else
+                        <span class="inline-block px-2.5 py-1 text-xs font-bold uppercase rounded bg-gray-200 text-gray-800">PENDING</span>
+                    @endif
                     <p class="text-sm font-semibold text-[#2D2D2D] mt-2">Payslip for {{ \Carbon\Carbon::parse($payroll->month . '-01')->format('F Y') }}</p>
                 </div>
             </div>
@@ -112,15 +121,42 @@
                 </div>
             </div>
 
-            {{-- Net Pay Box --}}
-            <div class="p-4 bg-[#2D2D2D] text-[#F5F5F5] rounded flex items-center justify-between mb-8">
-                <div>
-                    <span class="text-xs uppercase tracking-wider text-gray-300 block">Net Payable Amount</span>
-                    <span class="text-xs text-gray-400">Total Gross Earnings - Total Deductions</span>
+            {{-- Net Pay & Disbursement Summary Box --}}
+            <div class="p-4 bg-[#2D2D2D] text-[#F5F5F5] rounded space-y-3 mb-8">
+                <div class="flex items-center justify-between border-b border-gray-700/80 pb-3">
+                    <div>
+                        <span class="text-xs uppercase tracking-wider text-gray-300 block">Total Net Payable</span>
+                        <span class="text-[11px] text-gray-400">Gross Earnings - Total Deductions</span>
+                    </div>
+                    <div class="text-xl font-bold">
+                        ₹{{ number_format($payroll->net_salary, 2) }}
+                    </div>
                 </div>
-                <div class="text-2xl font-bold">
-                    ₹{{ number_format($payroll->net_salary, 2) }}
+
+                @php
+                    $actualPaid = (float)($payroll->paid_amount ?: ($payroll->status === 'paid' ? $payroll->net_salary : 0));
+                    $remDue = max(0, (float)$payroll->net_salary - $actualPaid);
+                @endphp
+
+                <div class="grid grid-cols-2 gap-4 text-xs pt-1">
+                    <div>
+                        <span class="text-gray-400 block text-[10px] uppercase font-bold">Amount Disbursed</span>
+                        <span class="text-base font-bold text-emerald-400">₹{{ number_format($actualPaid, 2) }}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-gray-400 block text-[10px] uppercase font-bold">Remaining Due</span>
+                        <span class="text-base font-bold {{ $remDue > 0 ? 'text-amber-400' : 'text-gray-400' }}">
+                            ₹{{ number_format($remDue, 2) }}
+                        </span>
+                    </div>
                 </div>
+
+                @if($payroll->remarks)
+                <div class="pt-2 border-t border-gray-700/60 text-[11px] text-gray-300 flex items-center gap-1.5">
+                    <i class="fas fa-info-circle text-gray-400"></i>
+                    <span><strong>Note:</strong> {{ $payroll->remarks }}</span>
+                </div>
+                @endif
             </div>
 
             {{-- Footer / Signatures --}}
@@ -136,5 +172,69 @@
             </div>
         </div>
     </div>
+
+    {{-- PDF & Alert Dependencies --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function downloadPayslipPdf() {
+            const btn = document.getElementById('downloadPdfBtn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            const element = document.getElementById('payslipDocument');
+            const employeeName = "{{ Str::slug($payroll->employee->full_name) }}";
+            const month = "{{ $payroll->month }}";
+            const filename = `Payslip-${employeeName}-${month}.pdf`;
+
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+
+                // SweetAlert after PDF download completes
+                Swal.fire({
+                    icon: 'success',
+                    title: 'PDF Downloaded!',
+                    text: `Payslip (${filename}) has been downloaded successfully.`,
+                    timer: 3500,
+                    timerProgressBar: true,
+                    confirmButtonColor: '#2D2D2D',
+                    confirmButtonText: 'Done'
+                });
+            }).catch((err) => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Download Failed',
+                    text: 'Unable to generate PDF automatically. Please try the Print Payslip option and select "Save as PDF".',
+                    confirmButtonColor: '#2D2D2D'
+                });
+            });
+        }
+
+        // Print dialog completion alert
+        window.addEventListener('afterprint', () => {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Payslip document processed!',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        });
+    </script>
 </body>
 </html>
