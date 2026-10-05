@@ -111,6 +111,14 @@ Route::middleware('auth')->group(function () {
     Route::resource('employees', EmployeeController::class);
 
 
+    Route::post('/teams/{team}/assign-employee', [TeamController::class, 'assignEmployee'])
+        ->middleware('permission:teams.edit')
+        ->name('teams.assign-employee');
+
+    Route::post('/teams/{team}/remove-employee/{employee}', [TeamController::class, 'removeEmployee'])
+        ->middleware('permission:teams.edit')
+        ->name('teams.remove-employee');
+
     /*
     |--------------------------------------------------------------------------
     | Attendance
@@ -196,8 +204,45 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::post('/roles/assign-employee', [RoleController::class, 'assignEmployeeRole'])
-        ->name('roles.assignEmployee');
+    Route::get('/tasks', [TaskController::class, 'index'])
+        ->middleware('permission:tasks.view')
+        ->name('tasks.index');
+
+    Route::get('/tasks/employees-by-team', [TaskController::class, 'getEmployeesByTeam'])
+        ->name('tasks.employees-by-team');
+
+    Route::post('/tasks/notifications/mark-read', [TaskController::class, 'markNotificationsRead'])
+        ->name('tasks.notifications.mark-read');
+
+    Route::get('/tasks/create', [TaskController::class, 'create'])
+        ->middleware('permission:tasks.create')
+        ->name('tasks.create');
+
+    Route::post('/tasks', [TaskController::class, 'store'])
+        ->middleware('permission:tasks.create')
+        ->name('tasks.store');
+
+    Route::get('/tasks/{task}', [TaskController::class, 'show'])
+        ->middleware('permission:tasks.view')
+        ->name('tasks.show');
+
+    Route::get('/tasks/{task}/edit', [TaskController::class, 'edit'])
+        ->middleware('permission:tasks.edit')
+        ->name('tasks.edit');
+
+    Route::put('/tasks/{task}', [TaskController::class, 'update'])
+        ->middleware('permission:tasks.edit')
+        ->name('tasks.update');
+
+    Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])
+        ->middleware('permission:tasks.delete')
+        ->name('tasks.destroy');
+
+    Route::post('/tasks/{task}/start', [TaskController::class, 'start'])
+        ->name('tasks.start');
+
+    Route::post('/tasks/{task}/complete', [TaskController::class, 'complete'])
+        ->name('tasks.complete');
 
     Route::post('/roles/bulk-assign', [RoleController::class, 'bulkAssignEmployees'])
         ->name('roles.bulkAssign');

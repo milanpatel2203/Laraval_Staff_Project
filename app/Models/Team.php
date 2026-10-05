@@ -14,6 +14,7 @@ class Team extends Model
     protected $fillable = [
         'name',
         'code',
+        'description',
         'department_id',
         'team_leader_id',
         'status',

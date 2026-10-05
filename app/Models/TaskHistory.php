@@ -17,6 +17,8 @@ class TaskHistory extends Model
         'old_value',
         'new_value',
         'remarks',
+        'old_assigned_to',
+        'new_assigned_to',
     ];
 
     public function task(): BelongsTo
@@ -27,5 +29,15 @@ class TaskHistory extends Model
     public function performer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'performed_by');
+    }
+
+    public function oldAssignedEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'old_assigned_to');
+    }
+
+    public function newAssignedEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'new_assigned_to');
     }
 }
