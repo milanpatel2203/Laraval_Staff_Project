@@ -101,72 +101,34 @@ class User extends Authenticatable
             return asset('storage/' . $this->linked_employee->avatar);
         }
 
-        // If Super Admin, check if another Super Admin account has an avatar or if EMP-001 has an avatar
-        if ($this->isSuperAdmin()) {
-            $superWithAvatar = self::where('role_title', 'Super Administrator')
-                ->whereNotNull('avatar')
-                ->where('avatar', '!=', '')
-                ->first();
-            if ($superWithAvatar && $superWithAvatar->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($superWithAvatar->avatar)) {
-                return asset('storage/' . $superWithAvatar->avatar);
-            }
-
-            $emp001 = Employee::where('employee_code', 'EMP-001')->orWhere('email', 'keval@uesthrms.com')->first();
-            if ($emp001 && $emp001->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($emp001->avatar)) {
-                return asset('storage/' . $emp001->avatar);
-            }
-        }
-
         return null;
     }
 
     public function getLinkedEmployeeAttribute(): ?Employee
     {
-        // 1. Direct email match
-        $emp = Employee::where('email', $this->email)->first();
-        if ($emp) {
-            return $emp;
-        }
-
-        $emailLower = strtolower($this->email);
-
-        // 2. Super Administrator / Keval accounts
-        if (in_array($emailLower, ['keval192837@gmail.com', 'admin@uest.com', 'admin@uesthrms.com', 'keval@uesthrms.com'])) {
-            $kevalEmp = Employee::where('email', 'keval@uesthrms.com')
-                ->orWhere('employee_code', 'EMP-001')
-                ->first();
-            if ($kevalEmp) return $kevalEmp;
-        }
-
-        // 3. Known role accounts
-        if (in_array($emailLower, ['staff@uesthrms.com', 'vikram.singh@uesthrms.com'])) {
-            return Employee::where('email', 'vikram.singh@uesthrms.com')->first();
-        }
-        if (in_array($emailLower, ['hr@uesthrms.com', 'priya.patel@uesthrms.com'])) {
-            return Employee::where('email', 'priya.patel@uesthrms.com')->first();
-        }
-        if (in_array($emailLower, ['manager@uesthrms.com', 'amit.kumar@uesthrms.com'])) {
-            return Employee::where('email', 'amit.kumar@uesthrms.com')->first();
-        }
-
-        // 4. Fuzzy match by name
-        $nameTrim = trim($this->name);
-        $parts = preg_split('/\s+/', $nameTrim);
-        if (!empty($parts[0])) {
-            $firstName = $parts[0];
-            $query = Employee::where('first_name', 'like', $firstName . '%');
-            if (count($parts) >= 2) {
-                $lastName = $parts[count($parts) - 1];
-                $prefix = substr($lastName, 0, min(4, strlen($lastName)));
-                $query->where('last_name', 'like', $prefix . '%');
+        // 1. Direct email match (case-insensitive)
+        if (!empty($this->email)) {
+            $emp = Employee::whereRaw('LOWER(email) = ?', [strtolower(trim($this->email))])->first();
+            if ($emp) {
+                return $emp;
             }
-            $match = $query->first();
-            if ($match) return $match;
         }
 
-        // 5. Fallback for Super Admin
-        if ($this->isSuperAdmin()) {
-            return Employee::where('employee_code', 'EMP-001')->first() ?? Employee::first();
+        // 2. Direct phone / mobile match
+        $phone = $this->mobile ?: $this->phone;
+        if (!empty($phone)) {
+            $emp = Employee::where('phone', trim($phone))->first();
+            if ($emp) {
+                return $emp;
+            }
+        }
+
+        // 3. Exact full name match
+        if (!empty($this->name)) {
+            $emp = Employee::whereRaw("LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = ?", [strtolower(trim($this->name))])->first();
+            if ($emp) {
+                return $emp;
+            }
         }
 
         return null;
