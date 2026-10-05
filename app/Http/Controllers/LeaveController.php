@@ -11,10 +11,18 @@ use App\Services\CsvExportService;
 use App\Services\LeaveApprovalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class LeaveController extends Controller
 {
+    protected LeaveApprovalService $approvalService;
+
+    public function __construct(LeaveApprovalService $approvalService)
+    {
+        $this->approvalService = $approvalService;
+    }
+
     /**
      * List leaves (filtered by role).
      */
@@ -50,30 +58,89 @@ class LeaveController extends Controller
             $query->where('status', $request->status);
         }
 
-        if ($request->get('queue') === 'assigned') {
-            $employee = $this->approvalService->employeeFor($user);
-            $query->where('status', 'pending');
+        $hasApprovalWorkflow = Schema::hasTable('leaves')
+            && Schema::hasColumn('leaves', 'approval_stage')
+            && Schema::hasColumn('leaves', 'current_approver_id');
 
-            if ($this->approvalService->isSuperAdmin($user)) {
-                $query->where('approval_stage', LeaveApprovalService::STAGE_SUPER_ADMIN);
-            } else {
-                $query->where('current_approver_id', $employee?->id);
+        if ($hasApprovalWorkflow) {
+            if ($request->get('queue') === 'assigned') {
+                $employee = $this->approvalService->employeeFor($user);
+                $query->where('status', 'pending');
+
+                if ($this->approvalService->isSuperAdmin($user)) {
+                    $query->where('approval_stage', LeaveApprovalService::STAGE_SUPER_ADMIN);
+                } else {
+                    $query->where('current_approver_id', $employee?->id);
+                }
             }
-        }
 
-        if ($request->get('queue') === 'waiting_super_admin') {
-            $query->where('status', 'pending')
-                ->where('approval_stage', LeaveApprovalService::STAGE_SUPER_ADMIN);
-        }
+            if ($request->get('queue') === 'waiting_super_admin') {
+                $query->where('status', 'pending')
+                    ->where('approval_stage', LeaveApprovalService::STAGE_SUPER_ADMIN);
+            }
 
-        if ($request->get('queue') === 'escalated') {
-            $query->where('is_escalated', true);
+            if ($request->get('queue') === 'escalated' && Schema::hasColumn('leaves', 'is_escalated')) {
+                $query->where('is_escalated', true);
+            }
+
+            $pendingAssignedCount = $this->approvalService->pendingAssignedCount($user);
+        } else {
+            $pendingAssignedCount = Leave::where('status', 'pending')->count();
         }
 
         $leaves = $query->latest()->paginate(10)->withQueryString();
-        $pendingAssignedCount = $this->approvalService->pendingAssignedCount($user);
 
-        return view('leaves.index', compact('leaves'));
+        return view('leaves.index', compact('leaves', 'canApproveLeaves', 'canApplyLeave', 'linkedEmployee', 'pendingAssignedCount'));
+    }
+
+    /**
+     * Store a newly created leave request.
+     */
+    public function store(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->hasPermission('leaves.apply')) {
+            return redirect()->back()->with('error', 'Unauthorized. You do not have permission to apply for leaves.');
+        }
+
+        $request->validate([
+            'type' => 'required|string|max:100',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date|after_or_equal:from_date',
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        $employee = $user->linked_employee;
+
+        if (!$employee) {
+            return redirect()
+                ->back()
+                ->with('error', 'Employee record not found for your account.');
+        }
+
+        $from = Carbon::parse($request->from_date);
+        $to = Carbon::parse($request->to_date);
+        $days = $from->diffInDays($to) + 1;
+
+        $leave = Leave::create([
+            'employee_id' => $employee->id,
+            'type' => $request->type,
+            'from_date' => $request->from_date,
+            'to_date' => $request->to_date,
+            'days' => $days,
+            'reason' => $request->reason,
+            'status' => 'pending',
+        ]);
+
+        ActivityLog::record(
+            "Leave requested by {$employee->full_name}",
+            "{$leave->type} ({$days} days) requested from {$from->format('d M')} to {$to->format('d M')}",
+            'calendar-plus'
+        );
+
+        return redirect()
+            ->route('leaves.index')
+            ->with('success', 'Leave request submitted successfully.');
     }
 
     /**
@@ -81,6 +148,11 @@ class LeaveController extends Controller
      */
     public function approve(Leave $leave)
     {
+        $user = auth()->user();
+        if (!$user->hasPermission('leaves.approve')) {
+            return redirect()->back()->with('error', 'Unauthorized. You do not have permission to approve leaves.');
+        }
+
         $leave->update(['status' => 'approved']);
 
         ActivityLog::record(
@@ -99,6 +171,11 @@ class LeaveController extends Controller
      */
     public function reject(Leave $leave)
     {
+        $user = auth()->user();
+        if (!$user->hasPermission('leaves.approve')) {
+            return redirect()->back()->with('error', 'Unauthorized. You do not have permission to reject leaves.');
+        }
+
         $leave->update(['status' => 'rejected']);
 
         ActivityLog::record(
@@ -114,7 +191,10 @@ class LeaveController extends Controller
 
     public function cancel(Leave $leave)
     {
-        if ($leave->employee_id !== auth()->user()->employee?->id) {
+        $user = auth()->user();
+        $employeeId = $user->linked_employee?->id ?? $user->employee?->id;
+
+        if ($leave->employee_id !== $employeeId) {
             abort(403, 'You can only cancel your own leave requests.');
         }
 
