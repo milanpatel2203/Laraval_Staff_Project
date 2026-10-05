@@ -5,13 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use App\Models\Leave;
-<<<<<<< HEAD
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
-use App\Services\LeaveApprovalService;
-=======
 use App\Services\CsvExportService;
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
+use App\Services\LeaveApprovalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;

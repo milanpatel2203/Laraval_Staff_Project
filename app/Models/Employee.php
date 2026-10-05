@@ -4,13 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-<<<<<<< HEAD
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-=======
 use Illuminate\Support\Facades\Storage;
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 
 class Employee extends Model
 {

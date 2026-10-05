@@ -5,12 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Role;
-<<<<<<< HEAD
 use App\Models\Team;
-=======
 use App\Models\User;
 use App\Services\CsvExportService;
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -63,13 +60,10 @@ class EmployeeController extends Controller
 
         $employees = $query->orderBy('first_name')->paginate(10)->withQueryString();
         $departments = Department::where('status', 'active')->orderBy('name')->get();
-<<<<<<< HEAD
         $teams = Team::where('status', 'active')->orderBy('name')->get();
-=======
         $roles = Role::orderBy('name')->get();
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 
-        return view('employees.index', compact('employees', 'departments', 'teams'));
+        return view('employees.index', compact('employees', 'departments', 'teams', 'roles'));
     }
 
     public function create()
@@ -81,12 +75,7 @@ class EmployeeController extends Controller
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
         $roles = Role::orderBy('name')->get();
-<<<<<<< HEAD
         $teams = Team::where('status', 'active')->orderBy('name')->get();
-
-=======
-        
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
         // Auto-generate employee code
         $lastEmp = Employee::latest('id')->first();
         $nextNumber = $lastEmp ? ((int) str_replace('EMP-', '', $lastEmp->employee_code) + 1) : 1;
@@ -157,13 +146,9 @@ class EmployeeController extends Controller
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
         $roles = Role::orderBy('name')->get();
-<<<<<<< HEAD
         $teams = Team::where('status', 'active')->orderBy('name')->get();
 
         return view('employees.edit', compact('employee', 'departments', 'roles', 'teams'));
-=======
-        return view('employees.edit', compact('employee', 'departments', 'roles'));
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
     }
 
     public function update(Request $request, Employee $employee)
