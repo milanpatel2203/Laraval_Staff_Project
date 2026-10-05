@@ -5,49 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use App\Models\Leave;
-<<<<<<< HEAD
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Services\LeaveApprovalService;
-=======
-use App\Services\CsvExportService;
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class LeaveController extends Controller
 {
-    /**
-     * List leaves (filtered by role).
-     */
+    public function __construct(private LeaveApprovalService $approvalService) {}
+
     public function index(Request $request)
     {
-        $user = auth()->user();
-        if (!$user->hasPermission('leaves.view')) {
-            abort(403, 'Unauthorized. You do not have permission to view leaves.');
-        }
-
-        $query = Leave::with('employee');
-
-        // Check permissions
-        $canApproveLeaves = $user->hasPermission('leaves.approve');
-        $canApplyLeave = $user->hasPermission('leaves.apply');
-        $linkedEmployee = $user->linked_employee;
-
-        // Role-based data scoping
-        if (!$user->isSuperAdmin() && !$user->hasPermission('settings.manage') && !$user->isHRManager()) {
-            if ($user->isDepartmentManager() && $user->linked_employee?->department_id) {
-                $deptId = $user->linked_employee->department_id;
-                $query->whereHas('employee', function ($q) use ($deptId) {
-                    $q->where('department_id', $deptId);
-                });
-            } elseif ($linkedEmployee) {
-                $query->where('employee_id', $linkedEmployee->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
+        $user = $request->user();
+        $query = $this->approvalService
+            ->visibleLeavesQuery($user)
+            ->with(['employee.team', 'currentApprover', 'approvals']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -76,19 +50,105 @@ class LeaveController extends Controller
         $leaves = $query->latest()->paginate(10)->withQueryString();
         $pendingAssignedCount = $this->approvalService->pendingAssignedCount($user);
 
-        return view('leaves.index', compact('leaves'));
+        return view('leaves.index', compact('leaves', 'pendingAssignedCount'));
     }
 
-    /**
-     * Approve a pending leave request.
-     */
-    public function approve(Leave $leave)
+    public function show(Request $request, Leave $leave)
     {
-        $leave->update(['status' => 'approved']);
+        $this->approvalService->assertVisible($request->user(), $leave);
+        $leave->load(['employee.team', 'currentApprover', 'approvals.approver', 'approvals.approverEmployee']);
+
+        return view('leaves.show', compact('leave'));
+    }
+
+    public function create()
+    {
+        $leaveTypes = LeaveType::active()->get();
+
+        return view('leaves.create', compact('leaveTypes'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'leave_type_id' => 'required|exists:leave_types,id',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date|after_or_equal:from_date',
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        $employee = Employee::with('team.teamLeader')->where('email', $request->user()->email)->first();
+
+        if (! $employee) {
+            return redirect()
+                ->back()
+                ->with('error', 'Employee record not found.');
+        }
+
+        $from = Carbon::parse($request->from_date);
+        $to = Carbon::parse($request->to_date);
+        $days = $from->diffInDays($to) + 1;
+
+        $leaveType = LeaveType::find($request->leave_type_id);
+
+        if (! $leaveType->is_paid) {
+            $balance = LeaveBalance::firstOrCreate(
+                ['employee_id' => $employee->id, 'leave_type_id' => $leaveType->id],
+                ['allocated' => 0, 'used' => 0, 'remaining' => 0]
+            );
+        } else {
+            $balance = LeaveBalance::firstOrCreate(
+                ['employee_id' => $employee->id, 'leave_type_id' => $leaveType->id],
+                ['allocated' => $leaveType->annual_allocation, 'used' => 0, 'remaining' => $leaveType->annual_allocation]
+            );
+
+            if ($balance->remaining < $days) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', "Insufficient leave balance. You have {$balance->remaining} days remaining for {$leaveType->name}.");
+            }
+        }
+
+        $this->approvalService->submit($employee, [
+            'type' => $leaveType->name,
+            'leave_type_id' => $leaveType->id,
+            'from_date' => $request->from_date,
+            'to_date' => $request->to_date,
+            'days' => $days,
+            'reason' => $request->reason,
+        ]);
+
+        return redirect()
+            ->route('leaves.index')
+            ->with('success', 'Leave request submitted successfully.');
+    }
+
+    public function approve(Request $request, Leave $leave)
+    {
+        $request->validate([
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $this->approvalService->approve($request->user(), $leave, $request->remarks);
+        } catch (HttpException $e) {
+            abort($e->getStatusCode(), $e->getMessage());
+        }
+
+        if ($leave->leave_type_id && $leave->leaveType->is_paid) {
+            $balance = LeaveBalance::firstOrCreate(
+                ['employee_id' => $leave->employee_id, 'leave_type_id' => $leave->leave_type_id],
+                ['allocated' => $leave->leaveType->annual_allocation, 'used' => 0, 'remaining' => $leave->leaveType->annual_allocation]
+            );
+            $balance->deduct($leave->days);
+        }
+
+        $leave->load('employee');
 
         ActivityLog::record(
             "Leave approved for {$leave->employee->full_name}",
-            "{$leave->type} ({$leave->days} days) approved by {$user->name}",
+            "{$leave->type} ({$leave->days} days) from {$leave->from_date->format('d M')} to {$leave->to_date->format('d M')}",
             'check-circle'
         );
 
@@ -97,16 +157,25 @@ class LeaveController extends Controller
             ->with('success', "Leave approved for {$leave->employee->full_name}.");
     }
 
-    /**
-     * Reject a pending leave request.
-     */
-    public function reject(Leave $leave)
+    public function reject(Request $request, Leave $leave)
     {
-        $leave->update(['status' => 'rejected']);
+        $request->validate([
+            'remarks' => 'required|string|max:1000',
+        ], [
+            'remarks.required' => 'Please provide remarks when rejecting a leave request.',
+        ]);
+
+        try {
+            $this->approvalService->reject($request->user(), $leave, $request->remarks);
+        } catch (HttpException $e) {
+            abort($e->getStatusCode(), $e->getMessage());
+        }
+
+        $leave->load('employee');
 
         ActivityLog::record(
             "Leave rejected for {$leave->employee->full_name}",
-            "{$leave->type} ({$leave->days} days) declined by {$user->name}",
+            "{$leave->type} ({$leave->days} days) was declined",
             'times-circle'
         );
 
@@ -128,72 +197,5 @@ class LeaveController extends Controller
         $leave->update(['status' => 'cancelled']);
 
         return redirect()->back()->with('success', 'Leave request cancelled successfully.');
-    }
-
-    public function export(Request $request)
-    {
-        $user = auth()->user();
-        if (!$user->hasPermission('leaves.view')) {
-            abort(403, 'Unauthorized. You do not have permission to view leaves.');
-        }
-
-        $query = Leave::with(['employee.department']);
-
-        $linkedEmployee = $user->linked_employee;
-
-        // Role-based data scoping
-        if (!$user->isSuperAdmin() && !$user->hasPermission('settings.manage') && !$user->isHRManager()) {
-            if ($user->isDepartmentManager() && $user->linked_employee?->department_id) {
-                $deptId = $user->linked_employee->department_id;
-                $query->whereHas('employee', function ($q) use ($deptId) {
-                    $q->where('department_id', $deptId);
-                });
-            } elseif ($linkedEmployee) {
-                $query->where('employee_id', $linkedEmployee->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $leaves = $query->latest()->get();
-
-        $headers = [
-            'Employee Code',
-            'Employee Name',
-            'Department',
-            'Leave Type',
-            'From Date',
-            'To Date',
-            'Total Days',
-            'Reason',
-            'Status',
-            'Admin Remarks',
-            'Applied Date',
-        ];
-
-        $rows = [];
-        foreach ($leaves as $l) {
-            $rows[] = [
-                $l->employee ? $l->employee->employee_code : 'N/A',
-                $l->employee ? $l->employee->full_name : 'N/A',
-                $l->employee && $l->employee->department ? $l->employee->department->name : 'N/A',
-                ucfirst($l->type),
-                $l->from_date ? $l->from_date->format('Y-m-d') : '',
-                $l->to_date ? $l->to_date->format('Y-m-d') : '',
-                $l->days,
-                $l->reason ?? '',
-                ucfirst($l->status),
-                $l->admin_remarks ?? '',
-                $l->created_at ? $l->created_at->format('Y-m-d H:i') : '',
-            ];
-        }
-
-        $filename = 'leaves_export_' . now()->format('Y_m_d_His') . '.csv';
-
-        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 }

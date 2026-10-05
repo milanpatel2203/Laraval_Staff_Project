@@ -6,10 +6,27 @@
 @section('content')
 <div class="space-y-6">
 
+    @if(session('success'))
+    <div class="bg-white border border-[#2D2D2D] text-[#2D2D2D] px-4 py-3 rounded flex items-center justify-between text-sm font-medium">
+        <div class="flex items-center gap-2.5">
+            <i class="fas fa-check-circle"></i>
+            <span>{{ session('success') }}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-xs text-gray-500 hover:text-black">&times;</button>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="bg-white border border-gray-400 text-[#2D2D2D] px-4 py-3 rounded flex items-center gap-2.5 text-sm font-medium">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ $errors->first() }}</span>
+    </div>
+    @endif
+
     {{-- Header & Year Filter --}}
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <h2 class="text-lg font-bold text-[#2D2D2D]">Holiday Calendar — {{ $year }} ({{ $holidays->total() }})</h2>
+            <h2 class="text-lg font-bold text-[#2D2D2D]">Holiday Calendar — {{ $year }} ({{ $holidays->count() }})</h2>
             <p class="text-xs text-gray-500 mt-0.5">Manage declared public holidays, national breaks, and company observances.</p>
         </div>
         <div class="flex items-center gap-3">
@@ -20,64 +37,70 @@
                     @endfor
                 </select>
             </form>
-            @if($canManageHolidays)
             <button onclick="toggleAddModal()" class="px-4 py-2 bg-[#2D2D2D] text-white rounded text-xs font-semibold hover:bg-[#1a1a1a] flex items-center gap-1.5">
                 <i class="fas fa-plus"></i> Add Holiday
             </button>
-            @endif
         </div>
     </div>
 
-    {{-- Holiday List Table using Common Component --}}
-    <x-table 
-        :headers="[
-            ['label' => 'Date', 'class' => 'w-24'],
-            ['label' => 'Holiday Name'],
-            ['label' => 'Day', 'class' => 'w-28'],
-            ['label' => 'Classification', 'class' => 'w-28'],
-            ['label' => 'Description'],
-            ['label' => 'Actions', 'class' => 'w-24', 'align' => 'right']
-        ]"
-        :empty="$holidays->isEmpty()" 
-        :pagination="$holidays"
-        emptyMessage="No holidays scheduled for this year. Click 'Add Holiday' to schedule one.">
-        @foreach($holidays as $h)
-        <tr class="hover:bg-gray-50/50">
-            <td class="py-3 px-4">
-                <div class="w-12 h-12 rounded bg-[#2D2D2D] text-[#F5F5F5] flex flex-col items-center justify-center shrink-0">
-                    <span class="text-base font-bold leading-tight">{{ $h->date->format('d') }}</span>
-                    <span class="text-[10px] uppercase font-semibold">{{ $h->date->format('M') }}</span>
-                </div>
-            </td>
-            <td class="py-3 px-4 font-semibold text-[#2D2D2D]">{{ $h->name }}</td>
-            <td class="py-3 px-4 text-gray-600">{{ $h->date->format('l') }}</td>
-            <td class="py-3 px-4">
-                <x-badge :variant="$h->type === 'National' ? 'active' : 'inactive'">
-                    {{ $h->type }}
-                </x-badge>
-            </td>
-            <td class="py-3 px-4 text-gray-500">{{ $h->description ?: '—' }}</td>
-            <td class="py-3 px-4 text-right">
-                @if($canManageHolidays)
-                <div class="inline-flex items-center gap-1.5">
-                    <button onclick="openEditModal({{ json_encode($h) }})" class="btn-action-edit text-xs" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <form action="{{ route('holidays.destroy', $h->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this holiday?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn-action-delete text-xs" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                </div>
-                @else
-                <span class="text-xs text-gray-400">—</span>
-                @endif
-            </td>
-        </tr>
-        @endforeach
-    </x-table>
+    {{-- Holiday List Cards / Table --}}
+    <div class="bg-white border border-gray-200 rounded overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                    <tr class="border-b border-gray-200 bg-gray-50/50 text-gray-500 uppercase tracking-wider">
+                        <th class="py-3 px-4 font-semibold w-24">Date</th>
+                        <th class="py-3 px-4 font-semibold">Holiday Name</th>
+                        <th class="py-3 px-4 font-semibold w-28">Day</th>
+                        <th class="py-3 px-4 font-semibold w-28">Classification</th>
+                        <th class="py-3 px-4 font-semibold">Description</th>
+                        <th class="py-3 px-4 font-semibold w-24 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-[13px]">
+                    @forelse($holidays as $h)
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="py-3 px-4">
+                            <div class="w-12 h-12 rounded bg-[#2D2D2D] text-[#F5F5F5] flex flex-col items-center justify-center shrink-0">
+                                <span class="text-base font-bold leading-tight">{{ $h->date->format('d') }}</span>
+                                <span class="text-[10px] uppercase font-semibold">{{ $h->date->format('M') }}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-[#2D2D2D]">{{ $h->name }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ $h->date->format('l') }}</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase 
+                                {{ $h->type === 'National' ? 'bg-[#2D2D2D] text-white' : 'bg-gray-200 text-gray-800' }}">
+                                {{ $h->type }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-gray-500">{{ $h->description ?: '—' }}</td>
+                        <td class="py-3 px-4 text-right">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button onclick="openEditModal({{ json_encode($h) }})" class="w-7 h-7 rounded border border-gray-300 bg-white text-[#2D2D2D] hover:bg-[#2D2D2D] hover:text-white flex items-center justify-center text-xs" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form action="{{ route('holidays.destroy', $h->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this holiday?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="w-7 h-7 rounded border border-gray-300 bg-white text-gray-500 hover:bg-[#2D2D2D] hover:text-white flex items-center justify-center text-xs" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-400">
+                            No holidays scheduled for year {{ $year }}. Click <strong>"Add Holiday"</strong> to schedule one.
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 {{-- Add Holiday Modal --}}

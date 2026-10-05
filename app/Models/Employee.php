@@ -4,13 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-<<<<<<< HEAD
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-=======
-use Illuminate\Support\Facades\Storage;
->>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 
 class Employee extends Model
 {
@@ -30,7 +26,6 @@ class Employee extends Model
         'salary',
         'status',
         'address',
-        'avatar',
     ];
 
     protected $casts = [
@@ -58,12 +53,12 @@ class Employee extends Model
         return $this->belongsTo(Role::class);
     }
 
-    public function user()
+    public function user(): HasOne
     {
         return $this->hasOne(User::class, 'email', 'email');
     }
 
-    public function attendances()
+    public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
     }
@@ -88,56 +83,8 @@ class Employee extends Model
         return "{$this->first_name} {$this->last_name}";
     }
 
-    public function getInitialsAttribute(): string
+    public function isTeamLeader(): bool
     {
-        $first = strtoupper(substr($this->first_name ?? '', 0, 1));
-        $last = strtoupper(substr($this->last_name ?? '', 0, 1));
-        return ($first || $last) ? ($first . $last) : 'EM';
-    }
-
-    public function getLinkedUserAttribute(): ?User
-    {
-        // 1. Direct email match (case-insensitive)
-        if (!empty($this->email)) {
-            $user = User::whereRaw('LOWER(email) = ?', [strtolower(trim($this->email))])->first();
-            if ($user) {
-                return $user;
-            }
-        }
-
-        // 2. Direct phone / mobile match
-        if (!empty($this->phone)) {
-            $user = User::where('mobile', trim($this->phone))->orWhere('phone', trim($this->phone))->first();
-            if ($user) {
-                return $user;
-            }
-        }
-
-        // 3. Exact full name match
-        $fullName = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
-        if (!empty($fullName)) {
-            $user = User::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($fullName)])->first();
-            if ($user) {
-                return $user;
-            }
-        }
-
-        return null;
-    }
-
-    public function getAvatarUrlAttribute(): ?string
-    {
-        // 1. Direct employee avatar column
-        if ($this->avatar && Storage::disk('public')->exists($this->avatar)) {
-            return asset('storage/' . $this->avatar);
-        }
-
-        // 2. Avatar from linked user
-        $linkedUser = $this->linked_user;
-        if ($linkedUser && $linkedUser->avatar && Storage::disk('public')->exists($linkedUser->avatar)) {
-            return asset('storage/' . $linkedUser->avatar);
-        }
-
-        return null;
+        return $this->team && (int) $this->team->team_leader_id === (int) $this->id;
     }
 }

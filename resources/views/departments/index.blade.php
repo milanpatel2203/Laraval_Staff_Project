@@ -5,62 +5,82 @@
 
 @section('content')
 <div class="space-y-6">
+    {{-- Alerts --}}
+    @if(session('success'))
+    <div class="bg-white border border-[#2D2D2D] text-[#2D2D2D] px-4 py-3 rounded flex items-center gap-2.5 text-sm font-medium">
+        <i class="fas fa-check-circle"></i>
+        <span>{{ session('success') }}</span>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="bg-white border border-gray-400 text-[#2D2D2D] px-4 py-3 rounded flex items-center gap-2.5 text-sm font-medium">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ $errors->first() }}</span>
+    </div>
+    @endif
+
     {{-- Header --}}
     <div class="flex items-center justify-between">
         <div>
-            <h2 class="text-lg font-bold text-[#2D2D2D]">Departments ({{ $departments->total() }})</h2>
+            <h2 class="text-lg font-bold text-[#2D2D2D]">Departments ({{ $departments->count() }})</h2>
             <p class="text-xs text-gray-500 mt-0.5">Manage organization departments and staff allocation.</p>
         </div>
-        @if($canManageDepartments)
         <button onclick="toggleAddModal()" class="bg-[#2D2D2D] hover:bg-[#1a1a1a] text-white text-xs font-semibold px-4 py-2 rounded inline-flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Department
         </button>
-        @endif
     </div>
 
-    {{-- Departments Table using Common Component --}}
-    <x-table 
-        :headers="[
-            ['label' => 'Code', 'class' => 'w-24'],
-            ['label' => 'Department Name'],
-            ['label' => 'Description'],
-            ['label' => 'Employees', 'class' => 'w-28'],
-            ['label' => 'Status', 'class' => 'w-24'],
-            ['label' => 'Actions', 'class' => 'w-28', 'align' => 'right']
-        ]" 
-        :empty="$departments->isEmpty()" 
-        :pagination="$departments"
-        emptyMessage="No departments found.">
-        @foreach($departments as $dept)
-        <tr class="hover:bg-gray-50/50">
-            <td class="py-3 px-4 font-bold text-[#2D2D2D]">{{ $dept->code }}</td>
-            <td class="py-3 px-4 font-medium text-[#2D2D2D]">{{ $dept->name }}</td>
-            <td class="py-3 px-4 text-gray-600">{{ $dept->description ?: '—' }}</td>
-            <td class="py-3 px-4 text-[#2D2D2D]">{{ $dept->employees_count }} staff</td>
-            <td class="py-3 px-4">
-                <x-badge :variant="$dept->status">{{ ucfirst($dept->status) }}</x-badge>
-            </td>
-            <td class="py-3 px-4 text-right">
-                @if($canManageDepartments)
-                <div class="inline-flex items-center gap-1.5">
-                    <button onclick="openEditModal({{ json_encode($dept) }})" class="btn-action-edit text-xs" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <form action="{{ route('departments.destroy', $dept->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this department?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn-action-delete text-xs" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                </div>
-                @else
-                <span class="text-xs text-gray-400">—</span>
-                @endif
-            </td>
-        </tr>
-        @endforeach
-    </x-table>
+    {{-- Departments Table --}}
+    <div class="bg-white border border-gray-200 rounded overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                    <tr class="border-b border-gray-200 bg-gray-50/50 text-gray-500 uppercase tracking-wider">
+                        <th class="py-3 px-4 font-semibold w-24">Code</th>
+                        <th class="py-3 px-4 font-semibold">Department Name</th>
+                        <th class="py-3 px-4 font-semibold">Description</th>
+                        <th class="py-3 px-4 font-semibold w-28">Employees</th>
+                        <th class="py-3 px-4 font-semibold w-24">Status</th>
+                        <th class="py-3 px-4 font-semibold w-28 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-[13px]">
+                    @forelse($departments as $dept)
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="py-3 px-4 font-bold text-[#2D2D2D]">{{ $dept->code }}</td>
+                        <td class="py-3 px-4 font-medium text-[#2D2D2D]">{{ $dept->name }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ $dept->description ?: '—' }}</td>
+                        <td class="py-3 px-4 text-[#2D2D2D]">{{ $dept->employees_count }} staff</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase {{ $dept->status === 'active' ? 'bg-[#2D2D2D] text-white' : 'bg-gray-200 text-gray-700' }}">
+                                {{ ucfirst($dept->status) }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button onclick="openEditModal({{ json_encode($dept) }})" class="w-7 h-7 rounded border border-gray-300 bg-white text-[#2D2D2D] hover:bg-[#2D2D2D] hover:text-white flex items-center justify-center text-xs" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form action="{{ route('departments.destroy', $dept->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this department?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="w-7 h-7 rounded border border-gray-300 bg-white text-gray-500 hover:bg-[#2D2D2D] hover:text-white flex items-center justify-center text-xs" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="py-6 text-center text-gray-400">No departments found.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 {{-- Add Modal --}}

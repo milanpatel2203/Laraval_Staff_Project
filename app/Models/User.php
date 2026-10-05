@@ -10,10 +10,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'email', 'mobile', 'phone', 'role_title', 'role_id', 'theme', 'bio', 'avatar', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable([
+    'name',
+    'email',
+    'mobile',
+    'role_title',
+    'bio',
+    'company_id',
+    'role_id',
+    'password',
+    'otp',
+    'otp_expires_at',
+])]
+
+#[Hidden([
+    'password',
+    'remember_token',
+])]
 
 class User extends Authenticatable
 {
@@ -23,51 +37,14 @@ class User extends Authenticatable
         'name',
         'email',
         'mobile',
-        'phone',
         'role_title',
-        'role_id',
-        'theme',
         'bio',
-        'avatar',
+        'company_id',
+        'role_id',
         'password',
+        'otp',
+        'otp_expires_at',
     ];
-
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
-
-    public function isSuperAdmin(): bool
-    {
-        return $this->role_title === 'Super Administrator' || ($this->role && $this->role->slug === 'super-admin');
-    }
-
-    public function isHRManager(): bool
-    {
-        return ($this->role && $this->role->slug === 'hr-manager') || str_contains(strtolower($this->role_title ?? ''), 'hr manager');
-    }
-
-    public function isDepartmentManager(): bool
-    {
-        return ($this->role && $this->role->slug === 'department-manager') || str_contains(strtolower($this->role_title ?? ''), 'department manager');
-    }
-
-    public function isStaff(): bool
-    {
-        return ($this->role && $this->role->slug === 'employee') || str_contains(strtolower($this->role_title ?? ''), 'staff') || str_contains(strtolower($this->role_title ?? ''), 'employee');
-    }
-
-    public function hasPermission(string $slug): bool
-    {
-        if ($this->role) {
-            // Safety fallback so Super Admin can always access roles & settings management
-            if ($this->isSuperAdmin() && in_array($slug, ['roles.manage', 'settings.manage'])) {
-                return true;
-            }
-            return $this->role->hasPermission($slug);
-        }
-        return $this->isSuperAdmin();
-    }
 
     protected $hidden = [
         'password',
@@ -100,6 +77,10 @@ class User extends Authenticatable
     |--------------------------------------------------------------------------
     */
 
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
 
     public function employee(): HasOne
     {
@@ -111,7 +92,10 @@ class User extends Authenticatable
         return $this->hasMany(Task::class, 'created_by');
     }
 
-
+    public function isSuperAdmin(): bool
+    {
+        return $this->role?->slug === 'super-admin';
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -142,51 +126,20 @@ class User extends Authenticatable
         }
 
         return strtoupper(
-            substr($words[0], 0, 1) .
+            substr($words[0], 0, 1).
             substr($words[count($words) - 1], 0, 1)
         );
     }
 
-    public function getAvatarUrlAttribute(): ?string
+    public function hasPermission(string $permission): bool
     {
-        if ($this->avatar && Storage::disk('public')->exists($this->avatar)) {
-            return asset('storage/' . $this->avatar);
+        if (! $this->role) {
+            return false;
         }
 
-        if ($this->linked_employee && $this->linked_employee->avatar && Storage::disk('public')->exists($this->linked_employee->avatar)) {
-            return asset('storage/' . $this->linked_employee->avatar);
-        }
-
-        return null;
-    }
-
-    public function getLinkedEmployeeAttribute(): ?Employee
-    {
-        // 1. Direct email match (case-insensitive)
-        if (!empty($this->email)) {
-            $emp = Employee::whereRaw('LOWER(email) = ?', [strtolower(trim($this->email))])->first();
-            if ($emp) {
-                return $emp;
-            }
-        }
-
-        // 2. Direct phone / mobile match
-        $phone = $this->mobile ?: $this->phone;
-        if (!empty($phone)) {
-            $emp = Employee::where('phone', trim($phone))->first();
-            if ($emp) {
-                return $emp;
-            }
-        }
-
-        // 3. Exact full name match
-        if (!empty($this->name)) {
-            $emp = Employee::whereRaw("LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = ?", [strtolower(trim($this->name))])->first();
-            if ($emp) {
-                return $emp;
-            }
-        }
-
-        return null;
+        return $this->role
+            ->permissions()
+            ->where('slug', $permission)
+            ->exists();
     }
 }

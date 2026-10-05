@@ -8,13 +8,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: 'var(--brand-primary)',
-          hover: 'var(--brand-hover)',
-          contrast: 'var(--brand-contrast)',
-        },
-        canvas: 'var(--bg-canvas)',
-        surface: 'var(--bg-surface)',
         charcoal: {
           DEFAULT: '#2D2D2D',
           hover: '#1a1a1a',
