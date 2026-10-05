@@ -1,3 +1,4 @@
+@use('Carbon\Carbon')
 @extends('layouts.app')
 
 @section('title', $canMarkAttendance ? 'Attendance' : 'My Attendance')
@@ -9,7 +10,7 @@
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-lg font-bold text-[#2D2D2D]">
-                {{ $canMarkAttendance ? 'Attendance Log' : 'My Attendance Log' }} ({{ \Carbon\Carbon::parse($date)->format('d M Y') }})
+                {{ $canMarkAttendance ? 'Attendance Log' : 'My Attendance Log' }} ({{ Carbon::parse($date)->format('d M Y') }})
             </h2>
             <p class="text-xs text-gray-500 mt-0.5">
                 {{ $canMarkAttendance ? 'Track employee check-ins, leaves, and absences across the organization.' : 'Check your daily attendance records and punch clock.' }}
@@ -55,7 +56,7 @@
                 </div>
             </td>
             <td class="py-3 px-4 text-[#2D2D2D]">{{ $emp->department ? $emp->department->name : '—' }}</td>
-            <td class="py-3 px-4 text-gray-600">{{ $att && $att->clock_in ? \Carbon\Carbon::parse($att->clock_in)->format('h:i A') : '—' }}</td>
+            <td class="py-3 px-4 text-gray-600">{{ $att && $att->clock_in ? Carbon::parse($att->clock_in)->format('h:i A') : '—' }}</td>
             <td class="py-3 px-4">
                 @if($att)
                 <x-badge :variant="$att->status">

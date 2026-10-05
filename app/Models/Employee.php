@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Employee extends Model
 {
@@ -105,13 +106,13 @@ class Employee extends Model
     public function getAvatarUrlAttribute(): ?string
     {
         // 1. Direct employee avatar column
-        if ($this->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->avatar)) {
+        if ($this->avatar && Storage::disk('public')->exists($this->avatar)) {
             return asset('storage/' . $this->avatar);
         }
 
         // 2. Avatar from linked user
         $linkedUser = $this->linked_user;
-        if ($linkedUser && $linkedUser->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($linkedUser->avatar)) {
+        if ($linkedUser && $linkedUser->avatar && Storage::disk('public')->exists($linkedUser->avatar)) {
             return asset('storage/' . $linkedUser->avatar);
         }
 

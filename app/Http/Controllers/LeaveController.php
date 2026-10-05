@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use App\Models\Leave;
+use App\Services\CsvExportService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -218,6 +219,6 @@ class LeaveController extends Controller
 
         $filename = 'leaves_export_' . now()->format('Y_m_d_His') . '.csv';
 
-        return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 }

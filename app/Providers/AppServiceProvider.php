@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\ActivityLog;
 use App\Models\Leave;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -33,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
                     $headerNotifications = collect([]);
                 }
 
-                $headerUser = \Illuminate\Support\Facades\Auth::user() ?? (Schema::hasTable('users') ? \App\Models\User::first() : null);
+                $headerUser = Auth::user() ?? (Schema::hasTable('users') ? User::first() : null);
             } catch (\Exception $e) {
                 $headerPendingLeavesCount = 0;
                 $headerNotifications = collect([]);

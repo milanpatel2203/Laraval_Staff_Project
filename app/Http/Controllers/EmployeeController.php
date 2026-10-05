@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Role;
+use App\Models\User;
+use App\Services\CsvExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -52,7 +55,7 @@ class EmployeeController extends Controller
 
         $employees = $query->orderBy('first_name')->paginate(10)->withQueryString();
         $departments = Department::where('status', 'active')->orderBy('name')->get();
-        $roles = \App\Models\Role::orderBy('name')->get();
+        $roles = Role::orderBy('name')->get();
 
         return view('employees.index', compact('employees', 'departments', 'roles'));
     }
@@ -65,7 +68,7 @@ class EmployeeController extends Controller
         }
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
-        $roles = \App\Models\Role::orderBy('name')->get();
+        $roles = Role::orderBy('name')->get();
         
         // Auto-generate employee code
         $lastEmp = Employee::latest('id')->first();
@@ -109,13 +112,13 @@ class EmployeeController extends Controller
         $employee = Employee::create($validated);
 
         if (!empty($validated['avatar'])) {
-            \App\Models\User::where('email', $employee->email)->update(['avatar' => $validated['avatar']]);
+            User::where('email', $employee->email)->update(['avatar' => $validated['avatar']]);
         }
 
         if (auth()->user()->isSuperAdmin() && !empty($validated['role_id'])) {
-            $user = \App\Models\User::where('email', $employee->email)->first();
+            $user = User::where('email', $employee->email)->first();
             if ($user) {
-                $role = \App\Models\Role::find($validated['role_id']);
+                $role = Role::find($validated['role_id']);
                 $user->role_id = $validated['role_id'];
                 if ($role) {
                     $user->role_title = $role->name;
@@ -135,7 +138,7 @@ class EmployeeController extends Controller
         }
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
-        $roles = \App\Models\Role::orderBy('name')->get();
+        $roles = Role::orderBy('name')->get();
         return view('employees.edit', compact('employee', 'departments', 'roles'));
     }
 
@@ -195,7 +198,7 @@ class EmployeeController extends Controller
         }
 
         // Direct email user
-        \App\Models\User::where('email', $employee->email)->update(
+        User::where('email', $employee->email)->update(
             array_filter([
                 'avatar' => array_key_exists('avatar', $validated) ? $targetAvatar : null,
                 'phone' => $validated['phone'] ?? null,
@@ -222,11 +225,11 @@ class EmployeeController extends Controller
         if (!auth()->user()->isSuperAdmin()) {
             unset($validated['role_id']);
         } else if (array_key_exists('role_id', $validated)) {
-            $user = \App\Models\User::where('email', $employee->email)->first();
+            $user = User::where('email', $employee->email)->first();
             if ($user) {
                 $user->role_id = $validated['role_id'];
                 if ($validated['role_id']) {
-                    $role = \App\Models\Role::find($validated['role_id']);
+                    $role = Role::find($validated['role_id']);
                     if ($role) {
                         $user->role_title = $role->name;
                     }
@@ -335,6 +338,6 @@ class EmployeeController extends Controller
 
         $filename = 'employees_export_' . now()->format('Y_m_d_His') . '.csv';
 
-        return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 }

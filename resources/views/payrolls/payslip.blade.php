@@ -1,3 +1,6 @@
+@use('Carbon\Carbon')
+@use('App\Models\Setting')
+@use('App\Http\Controllers\PayrollController')
 <!DOCTYPE html>
 <html lang="en">
 
@@ -48,9 +51,9 @@
             {{-- Header --}}
             <div class="flex items-center justify-between border-b border-gray-200 pb-6 mb-6">
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight text-[#2D2D2D]">{{ \App\Models\Setting::get('company_name', 'UEST TECHNOLOGIES') }}</h1>
-                    <p class="text-xs text-gray-500 mt-0.5">{{ \App\Models\Setting::get('company_address', 'Technology Park, Ahmedabad, Gujarat') }}</p>
-                    <p class="text-xs text-gray-500">{{ \App\Models\Setting::get('company_email', 'hr@uesthrms.com') }} | {{ \App\Models\Setting::get('company_phone', '+91 79 1234 5678') }}</p>
+                    <h1 class="text-xl font-bold tracking-tight text-[#2D2D2D]">{{ $companySettings['name'] ?? Setting::get('company_name', 'UEST TECHNOLOGIES') }}</h1>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ $companySettings['address'] ?? Setting::get('company_address', 'Technology Park, Ahmedabad, Gujarat') }}</p>
+                    <p class="text-xs text-gray-500">{{ $companySettings['email'] ?? Setting::get('company_email', 'hr@uesthrms.com') }} | {{ $companySettings['phone'] ?? Setting::get('company_phone', '+91 79 1234 5678') }}</p>
                 </div>
                 <div class="text-right">
                     @if($payroll->status === 'paid')
@@ -64,7 +67,7 @@
                             class="inline-block px-2.5 py-1 text-xs font-bold uppercase rounded bg-gray-200 text-gray-800">PENDING</span>
                     @endif
                     <p class="text-sm font-semibold text-[#2D2D2D] mt-2">Payslip for
-                        {{ \Carbon\Carbon::parse($payroll->month . '-01')->format('F Y') }}</p>
+                        {{ Carbon::parse($payroll->month . '-01')->format('F Y') }}</p>
                 </div>
             </div>
 
@@ -101,7 +104,7 @@
 
             {{-- Salary Breakdown Tables --}}
             @php
-                $cfg = \App\Http\Controllers\PayrollController::getPayrollConfig();
+                $cfg = $payrollConfig ?? PayrollController::getPayrollConfig();
                 $basic = (float) $payroll->basic_salary;
 
                 // Allowance components (actual ₹ amounts based on configured %)
