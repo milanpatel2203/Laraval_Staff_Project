@@ -48,9 +48,9 @@
             {{-- Header --}}
             <div class="flex items-center justify-between border-b border-gray-200 pb-6 mb-6">
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight text-[#2D2D2D]">UEST TECHNOLOGIES</h1>
-                    <p class="text-xs text-gray-500 mt-0.5">Technology Park, Ahmedabad, Gujarat</p>
-                    <p class="text-xs text-gray-500">hr@uesthrms.com | +91 79 1234 5678</p>
+                    <h1 class="text-xl font-bold tracking-tight text-[#2D2D2D]">{{ \App\Models\Setting::get('company_name', 'UEST TECHNOLOGIES') }}</h1>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ \App\Models\Setting::get('company_address', 'Technology Park, Ahmedabad, Gujarat') }}</p>
+                    <p class="text-xs text-gray-500">{{ \App\Models\Setting::get('company_email', 'hr@uesthrms.com') }} | {{ \App\Models\Setting::get('company_phone', '+91 79 1234 5678') }}</p>
                 </div>
                 <div class="text-right">
                     @if($payroll->status === 'paid')

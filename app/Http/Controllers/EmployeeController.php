@@ -224,17 +224,9 @@ class EmployeeController extends Controller
         ], fn($v) => !is_null($v));
 
         if (!empty($aliasUserData)) {
-            if ($employee->employee_code === 'EMP-001' || in_array(strtolower($employee->email), ['keval@uesthrms.com', 'keval192837@gmail.com'])) {
-                \App\Models\User::whereIn('email', ['keval192837@gmail.com', 'admin@uest.com', 'admin@uesthrms.com'])->update($aliasUserData);
-            }
-            if (in_array(strtolower($employee->email), ['vikram.singh@uesthrms.com', 'staff@uesthrms.com'])) {
-                \App\Models\User::whereIn('email', ['vikram.singh@uesthrms.com', 'staff@uesthrms.com'])->update($aliasUserData);
-            }
-            if (in_array(strtolower($employee->email), ['priya.patel@uesthrms.com', 'hr@uesthrms.com'])) {
-                \App\Models\User::whereIn('email', ['priya.patel@uesthrms.com', 'hr@uesthrms.com'])->update($aliasUserData);
-            }
-            if (in_array(strtolower($employee->email), ['amit.kumar@uesthrms.com', 'manager@uesthrms.com'])) {
-                \App\Models\User::whereIn('email', ['amit.kumar@uesthrms.com', 'manager@uesthrms.com'])->update($aliasUserData);
+            $linkedUser = $employee->linked_user;
+            if ($linkedUser) {
+                $linkedUser->update($aliasUserData);
             }
         }
 

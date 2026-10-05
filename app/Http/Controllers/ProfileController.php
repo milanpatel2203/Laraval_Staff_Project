@@ -17,14 +17,7 @@ class ProfileController extends Controller
      */
     protected function getUser(): User
     {
-        return Auth::user() ?? User::first() ?? User::create([
-            'name' => 'Administrator',
-            'email' => 'admin@uesthrms.com',
-            'phone' => '+91 98765 43210',
-            'role_title' => 'HR Manager',
-            'bio' => 'Head of Human Resources and organizational operations.',
-            'password' => Hash::make('admin123'),
-        ]);
+        return Auth::user() ?? abort(401);
     }
 
     /**
@@ -98,54 +91,7 @@ class ProfileController extends Controller
             $linkedEmp->update($empUpdate);
         }
 
-        $directEmp = \App\Models\Employee::where('email', $user->email)->first();
-        if ($directEmp && (!$linkedEmp || $directEmp->id !== $linkedEmp->id)) {
-            $directEmp->update(['avatar' => $targetAvatar]);
-        }
-
-        // Synchronize across role alias accounts and corresponding employees
-        $userSyncData = ['avatar' => $targetAvatar];
-        if (!empty($validated['phone'])) {
-            $userSyncData['phone'] = $validated['phone'];
-            $userSyncData['mobile'] = $validated['phone'];
-        }
-        if (!empty($validated['name'])) {
-            $userSyncData['name'] = $validated['name'];
-        }
-
-        if ($user->isSuperAdmin() || in_array(strtolower($user->email), ['keval192837@gmail.com', 'admin@uest.com', 'admin@uesthrms.com'])) {
-            \App\Models\User::whereIn('email', ['keval192837@gmail.com', 'admin@uest.com', 'admin@uesthrms.com'])
-                ->where('id', '!=', $user->id)
-                ->update($userSyncData);
-            $leadEmp = \App\Models\Employee::where('email', 'keval@uesthrms.com')
-                ->orWhere('employee_code', 'EMP-001')
-                ->first();
-            if ($leadEmp) {
-                $leadEmp->update($empUpdate);
-            }
-        }
-
-        if (in_array(strtolower($user->email), ['staff@uesthrms.com', 'vikram.singh@uesthrms.com'])) {
-            \App\Models\User::whereIn('email', ['staff@uesthrms.com', 'vikram.singh@uesthrms.com'])
-                ->where('id', '!=', $user->id)
-                ->update($userSyncData);
-            \App\Models\Employee::where('email', 'vikram.singh@uesthrms.com')->update($empUpdate);
-        }
-
-        if (in_array(strtolower($user->email), ['hr@uesthrms.com', 'priya.patel@uesthrms.com'])) {
-            \App\Models\User::whereIn('email', ['hr@uesthrms.com', 'priya.patel@uesthrms.com'])
-                ->where('id', '!=', $user->id)
-                ->update($userSyncData);
-            \App\Models\Employee::where('email', 'priya.patel@uesthrms.com')->update($empUpdate);
-        }
-
-        if (in_array(strtolower($user->email), ['manager@uesthrms.com', 'amit.kumar@uesthrms.com'])) {
-            \App\Models\User::whereIn('email', ['manager@uesthrms.com', 'amit.kumar@uesthrms.com'])
-                ->where('id', '!=', $user->id)
-                ->update($userSyncData);
-            \App\Models\Employee::where('email', 'amit.kumar@uesthrms.com')->update($empUpdate);
-        }
-
+        // Activity log
 
         ActivityLog::record(
             "Profile updated for {$user->name}",
