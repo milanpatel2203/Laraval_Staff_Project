@@ -4,21 +4,39 @@
 @section('page-title', 'Dashboard')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-4">
 
-    {{-- Flash Notifications --}}
-    @if(session('success'))
-    <div class="bg-white border border-[#2D2D2D] text-[#2D2D2D] px-4 py-3 rounded flex items-center justify-between text-sm font-medium">
-        <div class="flex items-center gap-2.5">
-            <i class="fas fa-check-circle"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-        <button onclick="this.parentElement.remove()" class="text-xs text-gray-500 hover:text-black">&times;</button>
+    @php
+        $hour = now()->setTimezone(config('app.timezone', 'Asia/Kolkata'))->hour;
+        $greeting = match(true) {
+            $hour < 12 => 'Good morning',
+            $hour < 17 => 'Good afternoon',
+            default => 'Good evening',
+        };
+    @endphp
+
+    {{-- Welcome Header --}}
+    <div>
+        <h2 id="dashboardGreeting" class="text-base font-bold text-[#2D2D2D]">
+            {{ $greeting }}, {{ auth()->user()->name }}
+        </h2>
+        <script>
+            (function() {
+                try {
+                    const h = new Date().getHours();
+                    let g = 'Good evening';
+                    if (h < 12) { g = 'Good morning'; }
+                    else if (h < 17) { g = 'Good afternoon'; }
+                    const el = document.getElementById('dashboardGreeting');
+                    if (el) { el.textContent = g + ', {{ addslashes(auth()->user()->name) }}'; }
+                } catch(e) {}
+            })();
+        </script>
     </div>
-    @endif
 
     {{-- Stats Cards Row (Dynamic & Clickable) --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        @if(auth()->user()->hasPermission('employees.view'))
         <a href="{{ route('employees.index') }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-users"></i>
@@ -28,7 +46,9 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">Total Employees</span>
             </div>
         </a>
+        @endif
 
+        @if(auth()->user()->hasPermission('departments.view'))
         <a href="{{ route('departments.index') }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-sitemap"></i>
@@ -38,7 +58,9 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">Departments</span>
             </div>
         </a>
+        @endif
 
+        @if(auth()->user()->hasPermission('attendance.view'))
         <a href="{{ route('attendance.index') }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-user-check"></i>
@@ -48,7 +70,9 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">Present Today</span>
             </div>
         </a>
+        @endif
 
+        @if(auth()->user()->hasPermission('leaves.view'))
         <a href="{{ route('leaves.index', ['status' => 'pending']) }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-calendar-minus"></i>
@@ -58,7 +82,9 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">Pending Leaves</span>
             </div>
         </a>
+        @endif
 
+        @if(auth()->user()->hasPermission('employees.view'))
         <a href="{{ route('employees.index', ['filter' => 'new_hires']) }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group" title="View New Hires">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-user-plus"></i>
@@ -68,7 +94,9 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">New Hires (30d)</span>
             </div>
         </a>
+        @endif
 
+        @if(auth()->user()->hasPermission('payroll.view'))
         <a href="{{ route('payroll.index') }}" class="bg-white border border-gray-200 rounded p-4 flex items-start gap-3.5 hover:border-[#2D2D2D] transition-none group">
             <div class="w-10 h-10 rounded bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-base shrink-0">
                 <i class="fas fa-money-bill-wave"></i>
@@ -78,6 +106,7 @@
                 <span class="text-[11px] text-gray-500 font-medium mt-0.5 group-hover:text-[#2D2D2D]">Payroll (Month)</span>
             </div>
         </a>
+        @endif
     </div>
 
     {{-- Main Grid --}}
@@ -170,8 +199,12 @@
                 @forelse($pendingLeaves as $leave)
                 <div class="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-xs shrink-0 font-bold">
-                            {{ substr($leave->employee->first_name, 0, 1) }}{{ substr($leave->employee->last_name, 0, 1) }}
+                        <div class="w-8 h-8 rounded-full overflow-hidden bg-[#2D2D2D] text-[#F5F5F5] flex items-center justify-center text-xs shrink-0 font-bold border border-gray-200">
+                            @if($leave->employee && $leave->employee->avatar_url)
+                                <img src="{{ $leave->employee->avatar_url }}" alt="{{ $leave->employee->full_name }}" class="w-full h-full object-cover">
+                            @else
+                                <span>{{ $leave->employee->initials }}</span>
+                            @endif
                         </div>
                         <div class="flex flex-col">
                             <span class="text-[13px] font-semibold text-[#2D2D2D]">{{ $leave->employee->full_name }}</span>
@@ -179,6 +212,7 @@
                         </div>
                     </div>
                     <span class="text-xs text-gray-500 hidden sm:inline">{{ $leave->from_date->format('d M') }} - {{ $leave->to_date->format('d M') }}</span>
+                    @if(auth()->user()->hasPermission('leaves.approve'))
                     <div class="flex gap-1.5 shrink-0">
                         <form action="{{ route('leaves.approve', $leave->id) }}" method="POST" class="inline">
                             @csrf
@@ -193,6 +227,11 @@
                             </button>
                         </form>
                     </div>
+                    @else
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                        <i class="fas fa-clock text-[9px]"></i> Pending
+                    </span>
+                    @endif
                 </div>
                 @empty
                 <div class="py-8 text-center text-gray-400 text-xs">
@@ -206,6 +245,7 @@
 
     {{-- Bottom Row --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        @if(auth()->user()->hasPermission('holidays.view'))
         {{-- Dynamic Upcoming Holidays --}}
         <div class="bg-white border border-gray-200 rounded overflow-hidden">
             <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
@@ -229,6 +269,7 @@
                 @endforelse
             </div>
         </div>
+        @endif
 
         {{-- Dynamic Recent Activity --}}
         <div class="bg-white border border-gray-200 rounded overflow-hidden">
