@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\CsvExportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends Controller
@@ -60,7 +61,7 @@ class EmployeeController extends Controller
 
         $employees = $query->orderBy('first_name')->paginate(10)->withQueryString();
         $departments = Department::where('status', 'active')->orderBy('name')->get();
-        $teams = Team::where('status', 'active')->orderBy('name')->get();
+        $teams = Schema::hasTable('teams') ? Team::where('status', 'active')->orderBy('name')->get() : collect([]);
         $roles = Role::orderBy('name')->get();
 
         return view('employees.index', compact('employees', 'departments', 'teams', 'roles'));
@@ -75,7 +76,7 @@ class EmployeeController extends Controller
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
         $roles = Role::orderBy('name')->get();
-        $teams = Team::where('status', 'active')->orderBy('name')->get();
+        $teams = Schema::hasTable('teams') ? Team::where('status', 'active')->orderBy('name')->get() : collect([]);
         // Auto-generate employee code
         $lastEmp = Employee::latest('id')->first();
         $nextNumber = $lastEmp ? ((int) str_replace('EMP-', '', $lastEmp->employee_code) + 1) : 1;
@@ -146,7 +147,7 @@ class EmployeeController extends Controller
 
         $departments = Department::where('status', 'active')->orderBy('name')->get();
         $roles = Role::orderBy('name')->get();
-        $teams = Team::where('status', 'active')->orderBy('name')->get();
+        $teams = Schema::hasTable('teams') ? Team::where('status', 'active')->orderBy('name')->get() : collect([]);
 
         return view('employees.edit', compact('employee', 'departments', 'roles', 'teams'));
     }
