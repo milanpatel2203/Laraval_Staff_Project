@@ -17,6 +17,9 @@ class Task extends Model
         'description',
         'created_by',
         'assigned_to',
+        'assigned_date',
+        'last_reassigned_by',
+        'last_reassigned_at',
         'team_id',
         'priority',
         'status',
@@ -31,7 +34,9 @@ class Task extends Model
         return [
             'start_date' => 'date',
             'due_date' => 'date',
+            'assigned_date' => 'date',
             'completed_at' => 'datetime',
+            'last_reassigned_at' => 'datetime',
         ];
     }
 
@@ -43,6 +48,11 @@ class Task extends Model
     public function assignedEmployee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'assigned_to');
+    }
+
+    public function lastReassignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'last_reassigned_by');
     }
 
     public function team(): BelongsTo

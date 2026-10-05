@@ -5,19 +5,38 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Team;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class TeamController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $teams = Team::with(['department', 'teamLeader'])
-            ->withCount('employees')
-            ->orderBy('name')
-            ->get();
+        $query = Team::with(['department', 'teamLeader'])
+            ->withCount('employees');
 
-        return view('teams.index', compact('teams'));
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        $teams = $query->orderBy('name')->get();
+        $departments = Department::where('status', 'active')->orderBy('name')->get();
+
+        return view('teams.index', compact('teams', 'departments'));
     }
 
     public function create()
@@ -49,6 +68,7 @@ class TeamController extends Controller
     {
         $departments = Department::where('status', 'active')->orderBy('name')->get();
         $leaders = $this->leaderOptions($team->team_leader_id);
+        $team->load(['employees.department']);
 
         return view('teams.edit', compact('team', 'departments', 'leaders'));
     }
@@ -64,27 +84,36 @@ class TeamController extends Controller
 
     public function destroy(Team $team)
     {
-        if ($team->employees()->exists()) {
-            $team->update(['status' => 'inactive']);
+        $employeeCount = $team->employees()->count();
 
-            return redirect()->route('teams.index')->with('success', 'Team has members, so it was deactivated instead of deleted.');
+        if ($employeeCount > 0) {
+            return redirect()->route('teams.index')->with('error', "Cannot delete team. It has {$employeeCount} employee(s) assigned. Please remove all employees first.");
         }
 
-        $team->delete();
-
-        return redirect()->route('teams.index')->with('success', 'Team deleted successfully.');
+        try {
+            $team->delete();
+            return redirect()->route('teams.index')->with('success', 'Team deleted successfully.');
+        } catch (QueryException $e) {
+            return redirect()->route('teams.index')->with('error', 'Cannot delete team. It has employees assigned. Please remove all employees first.');
+        }
     }
 
     private function validatedData(Request $request, ?Team $team = null): array
     {
         return $request->validate([
-            'name' => 'required|string|max:100',
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('teams', 'name')->ignore($team?->id),
+            ],
             'code' => [
                 'required',
                 'string',
                 'max:20',
                 Rule::unique('teams', 'code')->ignore($team?->id),
             ],
+            'description' => 'nullable|string|max:500',
             'department_id' => 'nullable|exists:departments,id',
             'team_leader_id' => [
                 'nullable',
@@ -98,6 +127,7 @@ class TeamController extends Controller
             ],
             'status' => 'required|in:active,inactive',
         ], [
+            'name.unique' => 'A team with this name already exists.',
             'team_leader_id.exists' => 'Please select an active employee as Team Leader.',
             'team_leader_id.unique' => 'This employee is already assigned as Team Leader of another team.',
         ]);
@@ -123,5 +153,47 @@ class TeamController extends Controller
         }
 
         Employee::where('id', $team->team_leader_id)->update(['team_id' => $team->id]);
+    }
+
+    public function assignEmployee(Request $request, Team $team)
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+        ]);
+
+        $employee = Employee::findOrFail($validated['employee_id']);
+
+        if ($employee->team_id) {
+            if ($employee->team_id === $team->id) {
+                return back()->with('error', 'Employee is already a member of this team.');
+            }
+            $otherTeam = $employee->team;
+            return back()->with('error', "Employee is already assigned to team: {$otherTeam->name}. Please remove them from that team first.");
+        }
+
+        $employee->update(['team_id' => $team->id]);
+
+        // Redirect to edit page if coming from there
+        $referer = request()->headers->get('referer');
+        if ($referer && strpos($referer, '/edit') !== false) {
+            return redirect()->route('teams.edit', $team->id)->with('success', 'Employee assigned to team successfully.');
+        }
+
+        return back()->with('success', 'Employee assigned to team successfully.');
+    }
+
+    public function removeEmployee(Team $team, Employee $employee)
+    {
+        if ($employee->team_id !== $team->id) {
+            return back()->with('error', 'Employee is not a member of this team.');
+        }
+
+        if ($team->team_leader_id === $employee->id) {
+            return back()->with('error', 'Cannot remove team leader. Please change the team leader first, then remove this employee.');
+        }
+
+        $employee->update(['team_id' => null]);
+
+        return back()->with('success', 'Employee removed from team successfully.');
     }
 }

@@ -146,6 +146,14 @@ Route::middleware('auth')->group(function () {
         ->middlewareFor('update', 'permission:teams.edit')
         ->middlewareFor('destroy', 'permission:teams.delete');
 
+    Route::post('/teams/{team}/assign-employee', [TeamController::class, 'assignEmployee'])
+        ->middleware('permission:teams.edit')
+        ->name('teams.assign-employee');
+
+    Route::post('/teams/{team}/remove-employee/{employee}', [TeamController::class, 'removeEmployee'])
+        ->middleware('permission:teams.edit')
+        ->name('teams.remove-employee');
+
     /*
     |--------------------------------------------------------------------------
     | Attendance
@@ -249,6 +257,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/tasks', [TaskController::class, 'index'])
         ->middleware('permission:tasks.view')
         ->name('tasks.index');
+
+    Route::get('/tasks/employees-by-team', [TaskController::class, 'getEmployeesByTeam'])
+        ->name('tasks.employees-by-team');
+
+    Route::post('/tasks/notifications/mark-read', [TaskController::class, 'markNotificationsRead'])
+        ->name('tasks.notifications.mark-read');
 
     Route::get('/tasks/create', [TaskController::class, 'create'])
         ->middleware('permission:tasks.create')
