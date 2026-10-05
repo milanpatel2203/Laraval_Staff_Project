@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable(['name', 'email', 'mobile', 'phone', 'role_title', 'role_id', 'theme', 'bio', 'avatar', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -148,11 +149,11 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute(): ?string
     {
-        if ($this->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->avatar)) {
+        if ($this->avatar && Storage::disk('public')->exists($this->avatar)) {
             return asset('storage/' . $this->avatar);
         }
 
-        if ($this->linked_employee && $this->linked_employee->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->linked_employee->avatar)) {
+        if ($this->linked_employee && $this->linked_employee->avatar && Storage::disk('public')->exists($this->linked_employee->avatar)) {
             return asset('storage/' . $this->linked_employee->avatar);
         }
 

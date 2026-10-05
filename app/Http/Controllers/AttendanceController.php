@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Services\CsvExportService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
@@ -132,14 +134,14 @@ class AttendanceController extends Controller
                 $emp->department ? $emp->department->name : 'N/A',
                 $emp->designation,
                 $att ? ucfirst(str_replace('_', ' ', $att->status)) : 'Not Marked',
-                $att && $att->clock_in ? \Carbon\Carbon::parse($att->clock_in)->format('h:i A') : '—',
-                $att && $att->clock_out ? \Carbon\Carbon::parse($att->clock_out)->format('h:i A') : '—',
+                $att && $att->clock_in ? Carbon::parse($att->clock_in)->format('h:i A') : '—',
+                $att && $att->clock_out ? Carbon::parse($att->clock_out)->format('h:i A') : '—',
                 $att->remarks ?? '',
             ];
         }
 
         $filename = 'attendance_export_' . $date . '.csv';
 
-        return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 }

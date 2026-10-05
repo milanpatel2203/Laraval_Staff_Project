@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use App\Models\Leave;
+<<<<<<< HEAD
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Services\LeaveApprovalService;
+=======
+use App\Services\CsvExportService;
+>>>>>>> 58d9b53 (declare all imports at top with use statements and remove inline namespaces)
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -190,6 +194,6 @@ class LeaveController extends Controller
 
         $filename = 'leaves_export_' . now()->format('Y_m_d_His') . '.csv';
 
-        return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 }

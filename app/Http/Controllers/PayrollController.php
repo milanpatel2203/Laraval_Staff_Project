@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use App\Models\Payroll;
+use App\Models\Setting;
+use App\Services\CsvExportService;
 use Illuminate\Http\Request;
 
 class PayrollController extends Controller
@@ -80,17 +82,17 @@ class PayrollController extends Controller
      */
     public static function getPayrollConfig(): array
     {
-        $pf = (float) \App\Models\Setting::get('payroll_pf_percent', 12.0);
-        $pt = (float) \App\Models\Setting::get('payroll_pt_percent', 2.5);
-        $esi = (float) \App\Models\Setting::get('payroll_esi_percent', 0.75);
-        $tds = (float) \App\Models\Setting::get('payroll_tds_percent', 0.0);
-        $otherDed = (float) \App\Models\Setting::get('payroll_other_deduction_percent', 0.0);
+        $pf = (float) Setting::get('payroll_pf_percent', 12.0);
+        $pt = (float) Setting::get('payroll_pt_percent', 2.5);
+        $esi = (float) Setting::get('payroll_esi_percent', 0.75);
+        $tds = (float) Setting::get('payroll_tds_percent', 0.0);
+        $otherDed = (float) Setting::get('payroll_other_deduction_percent', 0.0);
 
-        $hra = (float) \App\Models\Setting::get('payroll_hra_percent', 10.0);
-        $da = (float) \App\Models\Setting::get('payroll_da_percent', 5.0);
-        $conveyance = (float) \App\Models\Setting::get('payroll_conveyance_percent', 3.0);
-        $medical = (float) \App\Models\Setting::get('payroll_medical_percent', 2.0);
-        $special = (float) \App\Models\Setting::get('payroll_special_allowance_percent', 0.0);
+        $hra = (float) Setting::get('payroll_hra_percent', 10.0);
+        $da = (float) Setting::get('payroll_da_percent', 5.0);
+        $conveyance = (float) Setting::get('payroll_conveyance_percent', 3.0);
+        $medical = (float) Setting::get('payroll_medical_percent', 2.0);
+        $special = (float) Setting::get('payroll_special_allowance_percent', 0.0);
 
         $totalDed = round($pf + $pt + $esi + $tds + $otherDed, 2);
         $totalAll = round($hra + $da + $conveyance + $medical + $special, 2);
@@ -329,7 +331,14 @@ class PayrollController extends Controller
         }
 
         $payroll->load('employee.department');
-        return view('payrolls.payslip', compact('payroll'));
+        $payrollConfig = self::getPayrollConfig();
+        $companySettings = [
+            'name' => Setting::get('company_name', 'UEST TECHNOLOGIES'),
+            'address' => Setting::get('company_address', 'Technology Park, Ahmedabad, Gujarat'),
+            'email' => Setting::get('company_email', 'hr@uesthrms.com'),
+            'phone' => Setting::get('company_phone', '+91 79 1234 5678'),
+        ];
+        return view('payrolls.payslip', compact('payroll', 'payrollConfig', 'companySettings'));
     }
 
     public function export(Request $request)
@@ -400,7 +409,7 @@ class PayrollController extends Controller
 
         $filename = 'payroll_export_' . $currentMonth . '.csv';
 
-        return \App\Services\CsvExportService::streamDownload($filename, $headers, $rows);
+        return CsvExportService::streamDownload($filename, $headers, $rows);
     }
 
     /**
@@ -444,7 +453,7 @@ class PayrollController extends Controller
         foreach ($fields as $key) {
             if ($request->has($key)) {
                 $value = max(0, min(100, (float) $request->input($key)));
-                \App\Models\Setting::set($key, (string) $value, 'payroll');
+                Setting::set($key, (string) $value, 'payroll');
             }
         }
 
@@ -454,8 +463,8 @@ class PayrollController extends Controller
         $totalAll = $cfg['total_allowances'];
 
         // Sync legacy aggregate settings for backward compatibility
-        \App\Models\Setting::set('payroll_deduction_percent', (string) $totalDed, 'payroll');
-        \App\Models\Setting::set('payroll_allowance_percent', (string) $totalAll, 'payroll');
+        Setting::set('payroll_deduction_percent', (string) $totalDed, 'payroll');
+        Setting::set('payroll_allowance_percent', (string) $totalAll, 'payroll');
 
         // Automatically recalculate and update all pending (unpaid) payroll records for the current month
         $currentMonth = now()->format('Y-m');

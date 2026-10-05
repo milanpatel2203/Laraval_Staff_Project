@@ -1,3 +1,4 @@
+@use('Carbon\Carbon')
 @extends('layouts.app')
 
 @section('title', $canViewAllPayroll ? 'Payroll Management' : 'My Payslips')
@@ -10,7 +11,7 @@
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <h2 class="text-lg font-bold text-[#2D2D2D]">{{ $canViewAllPayroll ? 'Payroll' : 'My Payslips' }} —
-                    {{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }}</h2>
+                    {{ Carbon::parse($currentMonth . '-01')->format('F Y') }}</h2>
                 <p class="text-xs text-gray-500 mt-0.5">
                     {{ $canViewAllPayroll ? 'Generate salary slips, set manual payment amounts, and manage disbursements.' : 'View and download your monthly salary slips.' }}
                 </p>
