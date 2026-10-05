@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Holiday;
+use App\Models\Leave;
 use App\Services\LeaveApprovalService;
 
 class DashboardController extends Controller
