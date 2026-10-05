@@ -347,22 +347,13 @@
                             </div>
 
                                 <div class="p-2.5 bg-gray-50 border-t border-gray-200 text-center">
-
                                     <a href="{{ route('leaves.index') }}"
                                         class="text-xs font-semibold text-[#2D2D2D] hover:underline">
-
                                         Review All Leaves &rarr;
-
                                     </a>
-
                                 </div>
-
                             </div>
-
                         </div>
-
-                    @endif
-
 
                     {{-- User Menu --}}
                     <div class="relative">
@@ -490,7 +481,7 @@
             });
         @endif
 
-        @if($errors->any())
+        @if(isset($errors) && $errors->any())
             Toast.fire({
                 icon: 'error',
                 title: @json($errors->first())
